@@ -39,6 +39,8 @@ endif(WITH_THRIFT)
 if(WITH_GRPC)
     find_package(protobuf REQUIRED)
     find_package(gRPC CONFIG REQUIRED)
+
+    message(${Protobuf_LIBRARIES})
 endif(WITH_GRPC)
 find_package(ONNXRuntime)
 
