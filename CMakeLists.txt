@@ -41,6 +41,8 @@ if(WITH_GRPC)
     find_package(gRPC CONFIG REQUIRED)
 
     message(${Protobuf_LIBRARIES})
+    message("${Protobuf_LIBRARY_DEBUG}")
+    message("${Protobuf_LIBRARY_RELEASE}")
 endif(WITH_GRPC)
 find_package(ONNXRuntime)
 
