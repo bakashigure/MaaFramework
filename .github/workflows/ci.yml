@@ -101,7 +101,7 @@ jobs:
 
       - name: Build MAA
         run: |
-          cmake --preset "MSVC 2022" -DMAADEPS_TRIPLET="maa-x64-windows" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}'
+          cmake --preset "MSVC 2022" -DMAADEPS_TRIPLET="maa-x64-windows" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}' -DCMAKE_BUILD_TYPE=Debug
 
           cmake --build build --preset "MSVC 2022 - Debug" -j 16
 
