@@ -10,7 +10,6 @@ target_include_directories(MaaRpc INTERFACE ../../include PRIVATE .  ../include 
 target_link_libraries(MaaRpc
     PUBLIC
         MaaToolKit
-        MaaRpcProto
         protobuf::libprotobuf
         gRPC::grpc++
 )
