@@ -116,27 +116,23 @@ def main():
             if target:
                 return target[0], component
         return None, None
-    debug_asset = None
     devel_asset = None
     runtime_asset = None
     for asset in release["assets"]:
         target, component = split_asset_name(asset["name"])
         if target == target_triplet:
-            if component == 'dbg':
-                debug_asset = asset
-            elif component == 'devel':
+            if component == 'devel':
                 devel_asset = asset
             elif component == 'runtime':
                 runtime_asset = asset
-    if debug_asset and devel_asset and runtime_asset:
+    if devel_asset and runtime_asset:
         print("found assets:")
-        print("    " + debug_asset["name"])
         print("    " + devel_asset["name"])
         print("    " + runtime_asset["name"])
         maadeps_dir = Path(basedir, "MaaDeps")
         download_dir = Path(maadeps_dir, "tarball")
         download_dir.mkdir(parents=True, exist_ok=True)
-        for asset in [debug_asset, devel_asset, runtime_asset]:
+        for asset in [devel_asset, runtime_asset]:
             url = asset['browser_download_url']
             print("downloading from", url)
             local_file = download_dir / sanitize_filename(asset["name"])
