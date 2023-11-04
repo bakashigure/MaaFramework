@@ -1,0 +1,1 @@
+---@alias OsType "Windows"|"Linux"|"macOS"
