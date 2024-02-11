@@ -8,7 +8,7 @@
 #include "Utils/ImageIo.h"
 #include "Utils/Logger.h"
 
-MAA_DBG_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 std::optional<Recording> RecordParser::parse(const std::filesystem::path& path)
 {
@@ -75,8 +75,9 @@ std::optional<Record> RecordParser::parse_record(const json::value& record_json,
         { "connect", Record::Action::Type::connect },       { "click", Record::Action::Type::click },
         { "swipe", Record::Action::Type::swipe },           { "touch_down", Record::Action::Type::touch_down },
         { "touch_move", Record::Action::Type::touch_move }, { "touch_up", Record::Action::Type::touch_up },
-        { "press_key", Record::Action::Type::press_key },   { "screencap", Record::Action::Type::screencap },
-        { "start_app", Record::Action::Type::start_app },   { "stop_app", Record::Action::Type::stop_app },
+        { "press_key", Record::Action::Type::press_key },   { "input_text", Record::Action::Type::input_text },
+        { "screencap", Record::Action::Type::screencap },   { "start_app", Record::Action::Type::start_app },
+        { "stop_app", Record::Action::Type::stop_app },
     };
 
     auto it = kTypeMap.find(type_str);
@@ -105,6 +106,9 @@ std::optional<Record> RecordParser::parse_record(const json::value& record_json,
         break;
     case Record::Action::Type::press_key:
         action_opt = parse_press_key(record_json);
+        break;
+    case Record::Action::Type::input_text:
+        action_opt = parse_input_text(record_json);
         break;
     case Record::Action::Type::screencap:
         action_opt = parse_screencap(record_json, dir);
@@ -294,6 +298,21 @@ std::optional<Record::Param> RecordParser::parse_press_key(const json::value& re
     return result;
 }
 
+std::optional<Record::Param> RecordParser::parse_input_text(const json::value& record_json)
+{
+    Record::InputTextParam result;
+
+    if (auto text_opt = record_json.find<std::string>("text")) {
+        result.text = *text_opt;
+    }
+    else {
+        LogError << "Failed to find text:" << VAR(record_json);
+        return std::nullopt;
+    }
+
+    return result;
+}
+
 std::optional<Record::Param> RecordParser::parse_screencap(const json::value& record_json,
                                                            const std::filesystem::path& dir)
 {
@@ -333,4 +352,4 @@ std::optional<Record::Param> RecordParser::parse_app(const json::value& record_j
     return result;
 }
 
-MAA_DBG_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

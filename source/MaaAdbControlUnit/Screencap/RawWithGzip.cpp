@@ -2,11 +2,15 @@
 
 #include "Utils/Logger.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 bool ScreencapRawWithGzip::parse(const json::value& config)
 {
-    return parse_argv("ScreencapRawWithGzip", config, screencap_raw_with_gzip_argv_);
+    static const json::array kDefaultScreencapRawWithGzipArgv = {
+        "{ADB}", "-s", "{ADB_SERIAL}", "exec-out", "screencap | gzip -1",
+    };
+
+    return parse_argv("ScreencapRawWithGzip", config, kDefaultScreencapRawWithGzipArgv, screencap_raw_with_gzip_argv_);
 }
 
 bool ScreencapRawWithGzip::init(int swidth, int sheight)
@@ -16,19 +20,18 @@ bool ScreencapRawWithGzip::init(int swidth, int sheight)
 
 std::optional<cv::Mat> ScreencapRawWithGzip::screencap()
 {
-    if (!io_ptr_) {
-        LogError << "io_ptr is nullptr";
+    auto argv_opt = screencap_raw_with_gzip_argv_.gen(argv_replace_);
+    if (!argv_opt) {
         return std::nullopt;
     }
 
-    auto cmd_ret = command(screencap_raw_with_gzip_argv_.gen(argv_replace_));
-
-    if (!cmd_ret) {
+    auto output_opt = startup_and_read_pipe(*argv_opt);
+    if (!output_opt) {
         return std::nullopt;
     }
 
     return screencap_helper_.process_data(
-        cmd_ret.value(), std::bind(&ScreencapHelper::decode_gzip, &screencap_helper_, std::placeholders::_1));
+        *output_opt, std::bind(&ScreencapHelper::decode_gzip, &screencap_helper_, std::placeholders::_1));
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

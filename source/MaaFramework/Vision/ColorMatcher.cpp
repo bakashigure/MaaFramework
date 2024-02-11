@@ -19,14 +19,14 @@ ColorMatcher::ResultsVec ColorMatcher::analyze() const
         ResultsVec results = foreach_rois(range, connected);
 
         auto cost = duration_since(start_time);
-        LogDebug << name_ << "Raw:" << VAR(results) << VAR(range.first) << VAR(range.second) << VAR(connected)
+        LogTrace << name_ << "Raw:" << VAR(results) << VAR(range.first) << VAR(range.second) << VAR(connected)
                  << VAR(cost);
 
         int count = param_.count;
         filter(results, count);
 
         cost = duration_since(start_time);
-        LogDebug << name_ << "Filter:" << VAR(results) << VAR(range.first) << VAR(range.second) << VAR(count)
+        LogTrace << name_ << "Filter:" << VAR(results) << VAR(range.first) << VAR(range.second) << VAR(count)
                  << VAR(connected) << VAR(cost);
 
         all_results.insert(all_results.end(), std::make_move_iterator(results.begin()),
@@ -72,7 +72,7 @@ ColorMatcher::ResultsVec ColorMatcher::count_non_zero(const cv::Mat& bin, const 
     cv::Rect bounding = cv::boundingRect(bin);
     cv::Rect box = bounding + tl;
 
-    return { Result { .box = box, .score = count } };
+    return { Result { .box = box, .count = count } };
 }
 
 ColorMatcher::ResultsVec ColorMatcher::count_non_zero_with_connected(const cv::Mat& bin, const cv::Point& tl) const
@@ -94,11 +94,11 @@ ColorMatcher::ResultsVec ColorMatcher::count_non_zero_with_connected(const cv::M
         // int count = stats.at<int>(i, cv::CC_STAT_AREA);
         int count = cv::countNonZero(bin(bounding));
 
-        Result res { .box = bounding + tl, .score = count };
+        Result res { .box = bounding + tl, .count = count };
         results.emplace_back(std::move(res));
     }
 
-    return NMS(std::move(results), 1.0);
+    return NMS_for_count(std::move(results), 0.7);
 }
 
 void ColorMatcher::draw_result(const cv::Rect& roi, const cv::Mat& color, const cv::Mat& bin,
@@ -115,10 +115,10 @@ void ColorMatcher::draw_result(const cv::Rect& roi, const cv::Mat& color, const 
         const auto& res = results[i];
         cv::rectangle(image_draw, res.box, color_draw, 1);
 
-        std::string flag = MAA_FMT::format("{}: {}, [{}, {}, {}, {}]", i, res.score, res.box.x, res.box.y,
+        std::string flag = MAA_FMT::format("{}: {}, [{}, {}, {}, {}]", i, res.count, res.box.x, res.box.y,
                                            res.box.width, res.box.height);
         cv::putText(image_draw, flag, cv::Point(res.box.x, res.box.y - 5), cv::FONT_HERSHEY_PLAIN, 1.2, color_draw, 1);
-        if (i > 10 && res.score < 100) {
+        if (i > 10 && res.count < 100) {
             // 太多了画不下，反正后面的也是没用的
             LogDebug << "too many results, skip drawing" << VAR(results.size());
             break;
@@ -143,9 +143,7 @@ void ColorMatcher::draw_result(const cv::Rect& roi, const cv::Mat& color, const 
 
 void ColorMatcher::filter(ResultsVec& results, int count) const
 {
-    auto remove_iter =
-        std::remove_if(results.begin(), results.end(), [count](const auto& res) { return res.score < count; });
-    results.erase(remove_iter, results.end());
+    std::erase_if(results, [count](const auto& res) { return res.count < count; });
 }
 
 MAA_VISION_NS_END

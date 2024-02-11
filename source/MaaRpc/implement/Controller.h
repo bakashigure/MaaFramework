@@ -1,19 +1,23 @@
 #pragma once
 
+#include <semaphore>
+
+#include "generated/controller.grpc.pb.h"
+
 #include "AtomicMap.h"
 #include "Buffer.h"
 #include "MaaFramework/MaaDef.h"
 #include "Utility.h"
-#include "controller.grpc.pb.h"
 
-#include <semaphore>
+MAA_RPC_NS_BEGIN
 
 class ControllerImpl final : public ::maarpc::Controller::Service
 {
 public:
     struct CustomControllerInfo
     {
-        ::grpc::ServerReaderWriter<::maarpc::CustomControllerResponse, ::maarpc::CustomControllerRequest>* stream = nullptr;
+        ::grpc::ServerReaderWriter<::maarpc::CustomControllerResponse, ::maarpc::CustomControllerRequest>* stream =
+            nullptr;
         std::shared_ptr<ImageImpl> image_impl = nullptr;
         std::binary_semaphore finish { 0 };
     };
@@ -40,6 +44,8 @@ public:
                               ::maarpc::IIdResponse* response) override;
     ::grpc::Status post_press_key(::grpc::ServerContext* context, const ::maarpc::ControllerPostKeyRequest* request,
                                   ::maarpc::IIdResponse* response) override;
+    ::grpc::Status post_input_text(::grpc::ServerContext* context, const ::maarpc::ControllerInputTextRequest* request,
+                                   ::maarpc::IIdResponse* response) override;
     ::grpc::Status post_touch_down(::grpc::ServerContext* context, const ::maarpc::ControllerPostTouchRequest* request,
                                    ::maarpc::IIdResponse* response) override;
     ::grpc::Status post_touch_move(::grpc::ServerContext* context, const ::maarpc::ControllerPostTouchRequest* request,
@@ -67,3 +73,5 @@ private:
     AtomicMap<MaaControllerHandle> handles_;
     AtomicMap<std::shared_ptr<CustomControllerInfo>> infos_;
 };
+
+MAA_RPC_NS_END

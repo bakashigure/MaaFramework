@@ -16,10 +16,11 @@ MaaBool MaaSyncContextRunTask(MaaSyncContextHandle sync_context, MaaStringView t
     return sync_context->run_task(task_name, param);
 }
 
-MaaBool MaaSyncContextRunRecognizer(MaaSyncContextHandle sync_context, MaaImageBufferHandle image, MaaStringView task_name,
-                                    MaaStringView task_param, MaaRectHandle out_box, MaaStringBufferHandle out_detail)
+MaaBool MaaSyncContextRunRecognizer(MaaSyncContextHandle sync_context, MaaImageBufferHandle image,
+                                    MaaStringView task_name, MaaStringView task_param, MaaRectHandle out_box,
+                                    MaaStringBufferHandle out_detail)
 {
-    LogFunc << VAR_VOIDP(sync_context) << VAR(image) << VAR(task_name) << VAR(task_param) << VAR(out_box)
+    LogFunc << VAR_VOIDP(sync_context) << VAR_VOIDP(image) << VAR(task_name) << VAR(task_param) << VAR(out_box)
             << VAR(out_detail);
 
     if (!sync_context || !image) {
@@ -104,6 +105,18 @@ MaaBool MaaSyncContextPressKey(MaaSyncContextHandle sync_context, int32_t keycod
     return sync_context->press_key(keycode);
 }
 
+MaaBool MaaSyncContextInputText(MaaSyncContextHandle sync_context, MaaStringView text)
+{
+    LogFunc << VAR_VOIDP(sync_context) << VAR(text);
+
+    if (!sync_context) {
+        LogError << "handle is null";
+        return false;
+    }
+
+    return sync_context->input_text(text);
+}
+
 MaaBool MaaSyncContextTouchDown(MaaSyncContextHandle sync_context, int32_t contact, int32_t x, int32_t y,
                                 int32_t pressure)
 {
@@ -142,11 +155,11 @@ MaaBool MaaSyncContextTouchUp(MaaSyncContextHandle sync_context, int32_t contact
     return sync_context->touch_up(contact);
 }
 
-MaaBool MaaSyncContextScreencap(MaaSyncContextHandle sync_context, MaaImageBufferHandle buffer)
+MaaBool MaaSyncContextScreencap(MaaSyncContextHandle sync_context, MaaImageBufferHandle out_image)
 {
-    LogFunc << VAR_VOIDP(sync_context) << VAR(buffer);
+    LogFunc << VAR_VOIDP(sync_context) << VAR(out_image);
 
-    if (!sync_context || !buffer) {
+    if (!sync_context || !out_image) {
         LogError << "handle is null";
         return false;
     }
@@ -157,25 +170,26 @@ MaaBool MaaSyncContextScreencap(MaaSyncContextHandle sync_context, MaaImageBuffe
         return false;
     }
 
-    buffer->set(std::move(img));
+    out_image->set(std::move(img));
     return true;
 }
 
-MaaBool MaaSyncContextGetTaskResult(MaaSyncContextHandle sync_context, MaaStringView task_name, MaaStringBufferHandle buffer)
+MaaBool MaaSyncContextGetTaskResult(MaaSyncContextHandle sync_context, MaaStringView task_name,
+                                    MaaStringBufferHandle out_task_result)
 {
-    LogFunc << VAR_VOIDP(sync_context) << VAR(task_name) << VAR(buffer);
+    LogFunc << VAR_VOIDP(sync_context) << VAR(task_name) << VAR(out_task_result);
 
-    if (!sync_context || !buffer) {
+    if (!sync_context || !out_task_result) {
         LogError << "handle is null";
         return false;
     }
 
-    auto res = sync_context->task_result(task_name);
+    json::value res = sync_context->task_result(task_name);
     if (res.empty()) {
         LogError << "res is empty";
         return false;
     }
 
-    buffer->set(std::move(res));
+    out_task_result->set(res.to_string());
     return true;
 }

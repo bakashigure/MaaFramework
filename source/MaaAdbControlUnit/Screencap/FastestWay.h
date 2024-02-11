@@ -7,7 +7,7 @@
 #include "RawByNetcat.h"
 #include "RawWithGzip.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class ScreencapFastestWay : public ScreencapBase
 {
@@ -24,7 +24,7 @@ public:
     };
 
 public:
-    ScreencapFastestWay(const std::filesystem::path& minicap_path);
+    explicit ScreencapFastestWay(const std::filesystem::path& minicap_path);
     virtual ~ScreencapFastestWay() override = default;
 
 public: // from UnitBase
@@ -40,10 +40,10 @@ public: // from ScreencapAPI
 private:
     bool speed_test();
 
-    std::map<Method, std::shared_ptr<ScreencapBase>> units_;
+    std::unordered_map<Method, std::shared_ptr<ScreencapBase>> units_;
     Method method_ = Method::UnknownYet;
 };
 
 std::ostream& operator<<(std::ostream& os, ScreencapFastestWay::Method m);
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

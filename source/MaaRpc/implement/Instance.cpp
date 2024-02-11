@@ -3,6 +3,8 @@
 #include "Macro.h"
 #include "Utils/Logger.h"
 
+MAA_RPC_NS_BEGIN
+
 using namespace ::grpc;
 
 Status InstanceImpl::create(ServerContext* context, const ::maarpc::IdRequest* request,
@@ -88,7 +90,7 @@ static MaaBool _analyze(MaaSyncContextHandle sync_context, const MaaImageBufferH
     return request.ok() && request.analyze().match();
 }
 
-static MaaCustomRecognizerAPI custom_recognizer_api = { _analyze };
+static MaaCustomRecognizerAPI custom_recognizer_api = { .analyze = _analyze };
 
 Status InstanceImpl::register_custom_recognizer(
     ServerContext* context,
@@ -224,7 +226,7 @@ static void _stop(MaaTransparentArg arg)
     stream->Read(&request);
 }
 
-static MaaCustomActionAPI custom_action_api = { _run, _stop };
+static MaaCustomActionAPI custom_action_api = { .run = _run, .stop = _stop };
 
 Status InstanceImpl::register_custom_action(
     ServerContext* context, ServerReaderWriter<::maarpc::CustomActionResponse, ::maarpc::CustomActionRequest>* stream)
@@ -453,8 +455,8 @@ Status InstanceImpl::all_finished(ServerContext* context, const ::maarpc::Handle
     return Status::OK;
 }
 
-Status InstanceImpl::stop(ServerContext* context, const ::maarpc::HandleRequest* request,
-                          ::maarpc::EmptyResponse* response)
+Status InstanceImpl::post_stop(ServerContext* context, const ::maarpc::HandleRequest* request,
+                               ::maarpc::EmptyResponse* response)
 {
     LogFunc;
     std::ignore = context;
@@ -464,11 +466,11 @@ Status InstanceImpl::stop(ServerContext* context, const ::maarpc::HandleRequest*
 
     MAA_GRPC_GET_HANDLE
 
-    if (MaaStop(handle)) {
+    if (MaaPostStop(handle)) {
         return Status::OK;
     }
     else {
-        return Status(UNKNOWN, "MaaStop failed");
+        return Status(UNKNOWN, "MaaPostStop failed");
     }
 }
 
@@ -511,3 +513,5 @@ Status InstanceImpl::controller(ServerContext* context, const ::maarpc::HandleRe
         return Status(NOT_FOUND, "cannot locate controller handle");
     }
 }
+
+MAA_RPC_NS_END

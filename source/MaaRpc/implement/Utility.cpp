@@ -2,17 +2,11 @@
 #include "MaaFramework/MaaAPI.h"
 #include "Macro.h"
 #include "Utils/Logger.h"
+#include "Utils/Time.hpp"
 
-#include <boost/uuid/uuid_generators.hpp>
-#include <boost/uuid/uuid_io.hpp>
+MAA_RPC_NS_BEGIN
 
 using namespace ::grpc;
-
-auto uuid_generator = boost::uuids::random_generator();
-std::string make_uuid()
-{
-    return boost::uuids::to_string(uuid_generator());
-}
 
 void callback_impl(MaaStringView msg, MaaStringView detail, MaaCallbackTransparentArg arg)
 {
@@ -22,7 +16,10 @@ void callback_impl(MaaStringView msg, MaaStringView detail, MaaCallbackTranspare
 
     auto* state = reinterpret_cast<UtilityImpl::CallbackState*>(arg);
     state->write.acquire();
-    state->writer->Write(cb);
+    state->stream->Write(cb);
+
+    ::maarpc::CallbackRequest br;
+    state->stream->Read(&br);
     state->write.release();
 }
 
@@ -92,10 +89,10 @@ Status UtilityImpl::set_global_option(ServerContext* context, const ::maarpc::Se
             }
         }
         break;
-    case ::maarpc::SetGlobalOptionRequest::OptionCase::kShowDraw:
-        if (request->has_show_draw()) {
-            bool mode = request->show_draw();
-            if (MaaSetGlobalOption(MaaGlobalOption_ShowDraw, &mode, sizeof(mode))) {
+    case ::maarpc::SetGlobalOptionRequest::OptionCase::kShowHitDraw:
+        if (request->has_show_hit_draw()) {
+            bool mode = request->show_hit_draw();
+            if (MaaSetGlobalOption(MaaGlobalOption_ShowHitDraw, &mode, sizeof(mode))) {
                 return Status::OK;
             }
             else {
@@ -121,28 +118,37 @@ Status UtilityImpl::acquire_id(ServerContext* context, const ::maarpc::EmptyRequ
     return Status::OK;
 }
 
-Status UtilityImpl::register_callback(ServerContext* context, const ::maarpc::IdRequest* request,
-                                      ServerWriter<::maarpc::Callback>* writer)
+Status UtilityImpl::register_callback(ServerContext* context,
+                                      ServerReaderWriter<::maarpc::Callback, ::maarpc::CallbackRequest>* stream)
 {
     LogFunc;
 
-    MAA_GRPC_REQUIRED(id)
+    ::maarpc::CallbackRequest request_data;
+    auto request = &request_data;
 
-    auto id = request->id();
+    if (!stream->Read(request)) {
+        return Status(FAILED_PRECONDITION, "register callback cannot read init");
+    }
+
+    MAA_GRPC_REQUIRED_CASE_AS(result, Init)
+
+    MAA_GRPC_REQUIRED_OF(id, (&request->init()))
+
+    auto id = request->init().id();
 
     if (states_.has(id)) {
         return Status(ALREADY_EXISTS, "id already registered");
     }
 
     auto state = std::make_shared<CallbackState>();
-    state->writer = writer;
+    state->stream = stream;
 
     states_.add(id, state);
 
     {
         ::maarpc::Callback cb;
         cb.set_msg("Rpc.Inited");
-        state->writer->Write(cb);
+        state->stream->Write(cb);
     }
 
     while (true) {
@@ -180,3 +186,5 @@ Status UtilityImpl::unregister_callback(ServerContext* context, const ::maarpc::
 
     return Status::OK;
 }
+
+MAA_RPC_NS_END

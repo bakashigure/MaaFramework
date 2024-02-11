@@ -1,7 +1,11 @@
 #pragma once
 
-#include "MaaToolKit/Device/MaaToolKitDevice.h"
-#include "device.grpc.pb.h"
+#include "Conf/Conf.h"
+
+#include "MaaToolkit/Device/MaaToolkitDevice.h"
+#include "generated/device.grpc.pb.h"
+
+MAA_RPC_NS_BEGIN
 
 class DeviceImpl final : public ::maarpc::Device::Service
 {
@@ -14,3 +18,5 @@ public:
 private:
     std::mutex mtx_;
 };
+
+MAA_RPC_NS_END

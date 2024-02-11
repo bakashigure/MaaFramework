@@ -87,7 +87,12 @@ jobs:
         with:
           submodules: true
 
-      # Download host arch tools for Thrift of CustomThriftController
+      - name: Setup Windows 10 SDK
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v1.12
+        with:
+          sdk-version: 22621
+
+      # Download host arch tools for Thrift of ThriftControlUnit
       - name: Download host tools from MaaDeps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -102,7 +107,7 @@ jobs:
 
       - name: Build MAA
         run: |
-          cmake --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }}" -DMAADEPS_TRIPLET="maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-windows" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}'
+          cmake --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }}" -DCMAKE_SYSTEM_VERSION="10.0.22621.0" -DMAADEPS_TRIPLET="maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-windows" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}'
 
           cmake --build build --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }} - Release" -j 16
 
@@ -114,6 +119,7 @@ jobs:
           rm -rf install/bin/msvc-debug
 
           cp -r docs install
+          cp README*.md install
 
           cp -r sample install
 
@@ -161,7 +167,7 @@ jobs:
         with:
           remove_stale_cache: false
 
-      # Download host arch tools for Thrift of CustomThriftController
+      # Download host arch tools for Thrift of ThriftControlUnit
       - name: Download host tools from MaaDeps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -192,6 +198,7 @@ jobs:
           cmake --install build --prefix install
 
           cp -r docs install
+          cp README*.md install
 
           cp -r sample install
 
@@ -230,7 +237,7 @@ jobs:
           brew install llvm
         # 16
 
-      # Download host arch tools for Thrift of CustomThriftController
+      # Download host arch tools for Thrift of ThriftControlUnit
       - name: Download host tools from MaaDeps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -249,6 +256,7 @@ jobs:
           CXX: "/usr/local/opt/llvm/bin/clang++"
         run: |
           cmake --preset 'NinjaMulti' \
+            -DCMAKE_OSX_ARCHITECTURES='${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}' \
             -DMAADEPS_TRIPLET='maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-osx' \
             -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}'
 
@@ -261,6 +269,7 @@ jobs:
           cmake --install build --prefix install
 
           cp -r docs install
+          cp README*.md install
 
           cp -r sample install
 

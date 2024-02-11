@@ -5,8 +5,6 @@
 #include "Utils/StringMisc.hpp"
 #include "Vision/VisionTypes.h"
 
-#include <tuple>
-
 MAA_RES_NS_BEGIN
 
 bool PipelineResMgr::load(const std::filesystem::path& path, bool is_base)
@@ -146,6 +144,12 @@ bool PipelineResMgr::check_next_list(const TaskData::NextList& next_list) const
     return true;
 }
 
+std::vector<std::string> PipelineResMgr::get_task_list() const
+{
+    auto k = task_data_map_ | std::views::keys;
+    return std::vector(k.begin(), k.end());
+}
+
 bool PipelineResMgr::parse_config(const json::value& input, TaskDataMap& output, std::set<std::string>& existing_keys,
                                   const TaskDataMap& default_value)
 {
@@ -241,7 +245,7 @@ bool get_and_check_value_or_array(const json::value& input, const std::string& k
 bool PipelineResMgr::parse_task(const std::string& name, const json::value& input, TaskData& output,
                                 const TaskData& default_value)
 {
-    LogDebug << VAR(name);
+    LogTrace << VAR(name);
 
     TaskData data;
     data.name = name;
@@ -343,7 +347,8 @@ bool PipelineResMgr::parse_recognition(const json::value& input, Recognition::Ty
 
     static const std::string kDefaultRecognitionFlag = "Default";
     std::string rec_type_name;
-    if (!get_and_check_value(input, "recognition", rec_type_name, kDefaultRecognitionFlag)) {
+    if (!get_and_check_value(input, "recognition", rec_type_name, kDefaultRecognitionFlag) &&
+        !get_and_check_value(input, "recognizer", rec_type_name, kDefaultRecognitionFlag)) { // for compatibility
         LogError << "failed to get_and_check_value recognition" << VAR(input);
         return false;
     }
@@ -410,7 +415,7 @@ bool PipelineResMgr::parse_recognition(const json::value& input, Recognition::Ty
 
     case Type::Custom:
         out_param = CustomRecognizerParam {};
-        return parse_custom_recognizer_param(input, std::get<CustomRecognizerParam>(out_param),
+        return parse_custom_recognition_param(input, std::get<CustomRecognizerParam>(out_param),
                                              same_type ? std::get<CustomRecognizerParam>(default_param)
                                                        : CustomRecognizerParam {});
     default:
@@ -561,13 +566,13 @@ bool PipelineResMgr::parse_ocrer_param(const json::value& input, MAA_VISION_NS::
 
     std::vector<std::string> u8_text;
     std::vector<std::string> u8_default_text;
-    MAA_RNS::ranges::transform(default_value.text, std::back_inserter(u8_default_text), from_u16);
+    std::ranges::transform(default_value.text, std::back_inserter(u8_default_text), from_u16);
 
     if (!get_and_check_value_or_array(input, "text", u8_text, u8_default_text)) {
         LogError << "failed to get_and_check_value_or_array text" << VAR(input);
         return false;
     }
-    MAA_RNS::ranges::transform(u8_text, std::back_inserter(output.text), to_u16);
+    std::ranges::transform(u8_text, std::back_inserter(output.text), to_u16);
 
     if (auto replace_opt = input.find("replace")) {
         if (!replace_opt->is_array()) {
@@ -601,24 +606,22 @@ bool PipelineResMgr::parse_ocrer_param(const json::value& input, MAA_VISION_NS::
     return true;
 }
 
-bool PipelineResMgr::parse_custom_recognizer_param(const json::value& input,
+bool PipelineResMgr::parse_custom_recognition_param(const json::value& input,
                                                    MAA_VISION_NS::CustomRecognizerParam& output,
                                                    const MAA_VISION_NS::CustomRecognizerParam& default_value)
 {
-    if (!get_and_check_value(input, "custom_recognizer", output.name, default_value.name)) {
-        LogError << "failed to get_and_check_value custom_recognizer" << VAR(input);
+    if (!get_and_check_value(input, "custom_recognition", output.name, default_value.name) &&
+        !get_and_check_value(input, "custom_recognizer", output.name, default_value.name)) {
+        LogError << "failed to get_and_check_value custom_recognition" << VAR(input);
         return false;
     }
 
     if (output.name.empty()) {
-        LogError << "custom_recognizer is empty" << VAR(input);
+        LogError << "custom_recognition is empty" << VAR(input);
         return false;
     }
 
-    auto param_opt = input.find("custom_recognizer_param");
-    if (param_opt) {
-        output.custom_param = *param_opt;
-    }
+    output.custom_param = input.get("custom_recognition_param", input.get("custom_recognizer_param", json::object()));
 
     return true;
 }
@@ -886,6 +889,7 @@ bool PipelineResMgr::parse_action(const json::value& input, Action::Type& out_ty
         { "Click", Type::Click },
         { "Swipe", Type::Swipe },
         { "Key", Type::Key },
+        { "Text", Type::Text },
         { "StartApp", Type::StartApp },
         { "StopApp", Type::StopApp },
         { "Custom", Type::Custom },
@@ -914,9 +918,12 @@ bool PipelineResMgr::parse_action(const json::value& input, Action::Type& out_ty
 
     case Type::Key:
         out_param = KeyParam {};
-        return parse_key_press(input, std::get<KeyParam>(out_param),
+        return parse_press_key(input, std::get<KeyParam>(out_param),
                                same_type ? std::get<KeyParam>(default_param) : KeyParam {});
-
+    case Type::Text:
+        out_param = TextParam {};
+        return parse_input_text(input, std::get<TextParam>(out_param),
+                                same_type ? std::get<TextParam>(default_param) : TextParam {});
     case Type::StartApp:
     case Type::StopApp:
         out_param = AppParam {};
@@ -976,12 +983,23 @@ bool PipelineResMgr::parse_swipe(const json::value& input, Action::SwipeParam& o
     return true;
 }
 
-bool PipelineResMgr::parse_key_press(const json::value& input, Action::KeyParam& output,
+bool PipelineResMgr::parse_press_key(const json::value& input, Action::KeyParam& output,
                                      const Action::KeyParam& default_value)
 {
     // TODO: https://github.com/MaaAssistantArknights/MaaFramework/issues/24#issuecomment-1666533842
     if (!get_and_check_value_or_array(input, "key", output.keys, default_value.keys)) {
         LogError << "failed to get_and_check_value_or_array key" << VAR(input);
+        return false;
+    }
+
+    return true;
+}
+
+bool PipelineResMgr::parse_input_text(const json::value& input, Action::TextParam& output,
+                                      const Action::TextParam& default_value)
+{
+    if (!get_and_check_value(input, "text", output.text, default_value.text)) {
+        LogError << "failed to get_and_check_value text" << VAR(input);
         return false;
     }
 
@@ -1012,10 +1030,7 @@ bool PipelineResMgr::parse_custom_action_param(const json::value& input, Action:
         return false;
     }
 
-    auto param_opt = input.find("custom_action_param");
-    if (param_opt) {
-        output.custom_param = *param_opt;
-    }
+    output.custom_param = input.get("custom_action_param", json::object());
 
     return true;
 }

@@ -1,10 +1,11 @@
 #pragma once
 
-#include "UnitBase.h"
+#include "Base/UnitBase.h"
 
 #include "Invoke/InvokeApp.h"
+#include "Utils/IOStream/ChildPipeIOStream.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class MtouchHelper : public TouchInputBase
 {
@@ -24,7 +25,12 @@ protected:
     virtual std::pair<int, int> screen_to_touch(int x, int y) = 0;
     virtual std::pair<int, int> screen_to_touch(double x, double y) = 0;
 
-    std::shared_ptr<IOHandler> shell_handler_ = nullptr;
+    // https://github.com/openstf/minitouch#writable-to-the-socket
+    static constexpr std::string_view kDownFormat = "d {} {} {} {}\nc\n";
+    static constexpr std::string_view kMoveFormat = "m {} {} {} {}\nc\n";
+    static constexpr std::string_view kUpFormat = "u {}\nc\n";
+
+    std::shared_ptr<ChildPipeIOStream> pipe_ios_ = nullptr;
 
     int screen_width_ = 0;
     int screen_height_ = 0;
@@ -36,4 +42,4 @@ protected:
     int orientation_ = 0;
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

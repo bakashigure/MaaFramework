@@ -2,13 +2,19 @@
 
 #include "Utils/Logger.h"
 
-#include <tuple>
-
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 bool TapTouchInput::parse(const json::value& config)
 {
-    return parse_argv("Click", config, click_argv_) && parse_argv("Swipe", config, swipe_argv_);
+    static const json::array kDefaultClickArgv = {
+        "{ADB}", "-s", "{ADB_SERIAL}", "shell", "input tap {X} {Y}",
+    };
+    static const json::array kDefaultSwipeArgv = {
+        "{ADB}", "-s", "{ADB_SERIAL}", "shell", "input swipe {X1} {Y1} {X2} {Y2} {DURATION}",
+    };
+
+    return parse_argv("Click", config, kDefaultClickArgv, click_argv_) &&
+           parse_argv("Swipe", config, kDefaultSwipeArgv, swipe_argv_);
 }
 
 bool TapTouchInput::init(int swidth, int sheight, int orientation)
@@ -31,10 +37,13 @@ bool TapTouchInput::click(int x, int y)
 
     merge_replacement({ { "{X}", std::to_string(x) }, { "{Y}", std::to_string(y) } });
 
-    LogDebug << VAR(x) << VAR(y);
-    auto cmd_ret = command(click_argv_.gen(argv_replace_));
+    auto argv_opt = click_argv_.gen(argv_replace_);
+    if (!argv_opt) {
+        return false;
+    }
 
-    return cmd_ret && cmd_ret->empty();
+    auto output_opt = startup_and_read_pipe(*argv_opt);
+    return output_opt && output_opt->empty();
 }
 
 bool TapTouchInput::swipe(int x1, int y1, int x2, int y2, int duration)
@@ -46,9 +55,15 @@ bool TapTouchInput::swipe(int x1, int y1, int x2, int y2, int duration)
                         { "{X2}", std::to_string(x2) },
                         { "{Y2}", std::to_string(y2) },
                         { "{DURATION}", duration ? std::to_string(duration) : std::string() } });
-    auto cmd_ret = command(swipe_argv_.gen(argv_replace_));
 
-    return cmd_ret.has_value() && cmd_ret.value().empty();
+    auto argv_opt = swipe_argv_.gen(argv_replace_);
+    if (!argv_opt) {
+        return false;
+    }
+
+    using namespace std::chrono_literals;
+    auto output_opt = startup_and_read_pipe(*argv_opt);
+    return output_opt && output_opt->empty();
 }
 
 bool TapTouchInput::touch_down(int contact, int x, int y, int pressure)
@@ -71,7 +86,15 @@ bool TapTouchInput::touch_up(int contact)
 
 bool TapKeyInput::parse(const json::value& config)
 {
-    return parse_argv("PressKey", config, press_key_argv_);
+    static const json::array kDefaultPressKeyArgv = {
+        "{ADB}", "-s", "{ADB_SERIAL}", "shell", "input keyevent {KEY}",
+    };
+    static const json::array kDefaultInputTextArgv = {
+        "{ADB}", "-s", "{ADB_SERIAL}", "shell", "input text '{TEXT}'",
+    };
+
+    return parse_argv("PressKey", config, kDefaultPressKeyArgv, press_key_argv_) &&
+           parse_argv("InputText", config, kDefaultInputTextArgv, input_text_argv_);
 }
 
 bool TapKeyInput::press_key(int key)
@@ -79,9 +102,29 @@ bool TapKeyInput::press_key(int key)
     LogInfo << VAR(key);
 
     merge_replacement({ { "{KEY}", std::to_string(key) } });
-    auto cmd_ret = command(press_key_argv_.gen(argv_replace_));
 
-    return cmd_ret.has_value() && cmd_ret.value().empty();
+    auto argv_opt = press_key_argv_.gen(argv_replace_);
+    if (!argv_opt) {
+        return false;
+    }
+
+    auto output_opt = startup_and_read_pipe(*argv_opt);
+    return output_opt && output_opt->empty();
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+bool TapKeyInput::input_text(const std::string& text)
+{
+    LogInfo << VAR(text);
+
+    merge_replacement({ { "{TEXT}", text } });
+
+    auto argv_opt = input_text_argv_.gen(argv_replace_);
+    if (!argv_opt) {
+        return false;
+    }
+
+    auto output_opt = startup_and_read_pipe(*argv_opt);
+    return output_opt && output_opt->empty();
+}
+
+MAA_CTRL_UNIT_NS_END

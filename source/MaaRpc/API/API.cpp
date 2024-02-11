@@ -1,9 +1,11 @@
-#include "../implement/Context.h"
 #include "MaaRpc/MaaRpc.h"
+
 #include <grpcpp/server_builder.h>
 
+#include "../implement/Context.h"
+
 static std::unique_ptr<grpc::Server> server = nullptr;
-static std::unique_ptr<Context> context = nullptr;
+static std::unique_ptr<MAA_RPC_NS::Context> context = nullptr;
 
 MaaBool MaaRpcStart(MaaStringView address)
 {
@@ -13,7 +15,7 @@ MaaBool MaaRpcStart(MaaStringView address)
 
     std::string server_address(address);
 
-    context = std::make_unique<Context>();
+    context = std::make_unique<MAA_RPC_NS::Context>();
 
     grpc::ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());

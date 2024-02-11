@@ -35,13 +35,13 @@ TemplateMatcher::ResultsVec TemplateMatcher::analyze() const
 
         auto cost = duration_since(start_time);
         const std::string& path = param_.template_paths.at(i);
-        LogDebug << name_ << "Raw:" << VAR(results) << VAR(path) << VAR(cost);
+        LogTrace << name_ << "Raw:" << VAR(results) << VAR(path) << VAR(cost);
 
         double threshold = param_.thresholds.at(i);
         filter(results, threshold);
 
         cost = duration_since(start_time);
-        LogDebug << name_ << "Filter:" << VAR(results) << VAR(path) << VAR(threshold) << VAR(cost);
+        LogTrace << name_ << "Filter:" << VAR(results) << VAR(path) << VAR(threshold) << VAR(cost);
 
         all_results.insert(all_results.end(), std::make_move_iterator(results.begin()),
                            std::make_move_iterator(results.end()));
@@ -53,7 +53,7 @@ TemplateMatcher::ResultsVec TemplateMatcher::analyze() const
 TemplateMatcher::ResultsVec TemplateMatcher::foreach_rois(const cv::Mat& templ) const
 {
     if (templ.empty()) {
-        LogWarn << name_ << "template is empty" << VAR(param_.template_paths) << VAR(templ);
+        LogWarn << name_ << "template is empty" << VAR(param_.template_paths) << VAR(templ.size());
         return {};
     }
 
@@ -75,7 +75,7 @@ TemplateMatcher::ResultsVec TemplateMatcher::match(const cv::Rect& roi, const cv
     cv::Mat image = image_with_roi(roi);
 
     if (templ.cols > image.cols || templ.rows > image.rows) {
-        LogError << "templ size is too large" << VAR(image) << VAR(templ);
+        LogError << name_ << "templ size is too large" << VAR(image) << VAR(templ);
         return {};
     }
 
@@ -149,9 +149,7 @@ void TemplateMatcher::draw_result(const cv::Rect& roi, const cv::Mat& templ, con
 
 void TemplateMatcher::filter(ResultsVec& results, double threshold) const
 {
-    auto remove_iter =
-        std::remove_if(results.begin(), results.end(), [threshold](const auto& res) { return res.score < threshold; });
-    results.erase(remove_iter, results.end());
+    std::erase_if(results, [threshold](const auto& res) { return res.score < threshold; });
 }
 
 MAA_VISION_NS_END

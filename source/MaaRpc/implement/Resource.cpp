@@ -3,6 +3,8 @@
 #include "Macro.h"
 #include "Utils/Logger.h"
 
+MAA_RPC_NS_BEGIN
+
 using namespace ::grpc;
 
 Status ResourceImpl::create(ServerContext* context, const ::maarpc::IdRequest* request,
@@ -129,3 +131,28 @@ Status ResourceImpl::hash(ServerContext* context, const ::maarpc::HandleRequest*
         return Status(UNKNOWN, "MaaResourceGetHash failed");
     }
 }
+
+Status ResourceImpl::task_list(ServerContext* context, const ::maarpc::HandleRequest* request,
+                               ::maarpc::StringResponse* response)
+{
+    LogFunc;
+    std::ignore = context;
+
+    MAA_GRPC_REQUIRED(handle)
+
+    MAA_GRPC_GET_HANDLE
+
+    auto sb = MaaCreateStringBuffer();
+    if (MaaResourceGetTaskList(handle, sb)) {
+        std::string list(MaaGetString(sb), MaaGetStringSize(sb));
+        MaaDestroyStringBuffer(sb);
+        response->set_str(list);
+        return Status::OK;
+    }
+    else {
+        MaaDestroyStringBuffer(sb);
+        return Status(UNKNOWN, "MaaResourceGetTaskList failed");
+    }
+}
+
+MAA_RPC_NS_END

@@ -2,7 +2,7 @@
 
 #include <meojson/json.hpp>
 
-#include "Controller/ControllerMgr.h"
+#include "Controller/ControllerAgent.h"
 #include "Instance/InstanceStatus.h"
 #include "PipelineTask.h"
 #include "Utils/Logger.h"
@@ -136,6 +136,20 @@ bool SyncContext::press_key(int keycode)
     return ctrl->wait(id) == MaaStatus_Success;
 }
 
+bool SyncContext::input_text(std::string_view text)
+{
+    LogFunc << VAR(text);
+
+    auto* ctrl = controller();
+    if (!ctrl) {
+        LogError << "Controller is null";
+        return false;
+    }
+
+    auto id = ctrl->post_input_text(text);
+    return ctrl->wait(id) == MaaStatus_Success;
+}
+
 bool SyncContext::touch_down(int contact, int x, int y, int pressure)
 {
     LogFunc << VAR(contact) << VAR(x) << VAR(y) << VAR(pressure);
@@ -192,14 +206,14 @@ cv::Mat SyncContext::screencap()
     return ctrl->get_image();
 }
 
-std::string SyncContext::task_result(const std::string& task_name) const
+json::value SyncContext::task_result(const std::string& task_name) const
 {
     if (!status()) {
         LogError << "Instance status is null";
         return {};
     }
 
-    return status()->get_task_result(task_name).to_string();
+    return status()->get_task_result(task_name);
 }
 
 MAA_TASK_NS_END

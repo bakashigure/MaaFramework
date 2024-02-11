@@ -1,8 +1,5 @@
 #pragma once
 
-#include "Conf/Conf.h"
-#include "Utils/NoWarningCVMat.hpp"
-
 #include <chrono>
 #include <memory>
 #include <string>
@@ -12,6 +9,8 @@
 
 #include <meojson/json.hpp>
 
+#include "Conf/Conf.h"
+#include "Utils/NoWarningCVMat.hpp"
 #include "Vision/VisionTypes.h"
 
 MAA_RES_NS_BEGIN
@@ -46,11 +45,11 @@ enum class Type
     Click,
     Swipe,
     Key,
+    Text,
     StartApp,
     StopApp,
     Custom,
     StopTask,
-    // InputText, // TODO
 };
 
 struct Target
@@ -88,6 +87,11 @@ struct KeyParam
     std::vector<int> keys;
 };
 
+struct TextParam
+{
+    std::string text;
+};
+
 struct AppParam
 {
     std::string package;
@@ -99,7 +103,7 @@ struct CustomParam
     json::value custom_param;
 };
 
-using Param = std::variant<std::monostate, ClickParam, SwipeParam, KeyParam, AppParam, CustomParam>;
+using Param = std::variant<std::monostate, ClickParam, SwipeParam, KeyParam, TextParam, AppParam, CustomParam>;
 } // namespace Action
 
 struct WaitFreezesParam

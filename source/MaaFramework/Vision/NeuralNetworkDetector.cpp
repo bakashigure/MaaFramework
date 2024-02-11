@@ -1,9 +1,10 @@
 #include "NeuralNetworkDetector.h"
 
+#include <ranges>
+
 #include <onnxruntime/onnxruntime_cxx_api.h>
 
 #include "Utils/NoWarningCV.hpp"
-#include "Utils/Ranges.hpp"
 #include "VisionUtils.hpp"
 
 MAA_VISION_NS_BEGIN
@@ -28,13 +29,13 @@ NeuralNetworkDetector::ResultsVec NeuralNetworkDetector::analyze() const
     auto start_time = std::chrono::steady_clock::now();
     ResultsVec results = foreach_rois();
     auto cost = duration_since(start_time);
-    LogDebug << name_ << "Raw:" << VAR(results) << VAR(cost);
+    LogTrace << name_ << "Raw:" << VAR(results) << VAR(cost);
 
     const auto& expected = param_.expected;
     filter(results, expected);
 
     cost = duration_since(start_time);
-    LogDebug << name_ << "Filter:" << VAR(results) << VAR(expected) << VAR(cost);
+    LogTrace << name_ << "Filter:" << VAR(results) << VAR(expected) << VAR(cost);
 
     return results;
 }
@@ -148,10 +149,9 @@ void NeuralNetworkDetector::filter(ResultsVec& results, const std::vector<size_t
         return;
     }
 
-    auto it = std::remove_if(results.begin(), results.end(), [&](const Result& res) {
+    std::erase_if(results, [&](const Result& res) {
         return std::find(expected.begin(), expected.end(), res.cls_index) == expected.end();
     });
-    results.erase(it, results.end());
 }
 
 void NeuralNetworkDetector::draw_result(const cv::Rect& roi, const ResultsVec& results) const

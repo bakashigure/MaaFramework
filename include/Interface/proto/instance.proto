@@ -3,20 +3,6 @@ syntax = "proto3";
 package maarpc;
 
 import "types.proto";
-import "custom.recognizer.proto";
-import "custom.action.proto";
-
-message InstancePostTaskRequest {
-  optional string handle = 1;
-  optional string task = 2;
-  optional string param = 3;
-}
-
-message InstanceSetTaskParamRequest {
-  optional string handle = 1;
-  optional uint64 id = 2;
-  optional string param = 3;
-}
 
 service Instance {
   rpc create(IdRequest) returns (HandleResponse);
@@ -43,7 +29,7 @@ service Instance {
   rpc wait(HandleIIdRequest) returns (StatusResponse);
   rpc all_finished(HandleRequest) returns (BoolResponse);
 
-  rpc stop(HandleRequest) returns (EmptyResponse);
+  rpc post_stop(HandleRequest) returns (EmptyResponse);
 
   rpc resource(HandleRequest) returns (HandleRequest);
   rpc controller(HandleRequest) returns (HandleRequest);

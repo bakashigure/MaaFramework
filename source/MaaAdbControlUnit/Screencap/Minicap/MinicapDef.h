@@ -1,10 +1,10 @@
 #pragma once
 
-#include "Conf/Conf.h"
-
 #include <cstdint>
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+#include "Conf/Conf.h"
+
+MAA_CTRL_UNIT_NS_BEGIN
 
 #pragma pack(push, 1)
 
@@ -30,4 +30,4 @@ struct MinicapHeader
 
 #pragma pack(pop)
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

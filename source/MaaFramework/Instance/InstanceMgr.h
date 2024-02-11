@@ -1,13 +1,13 @@
 #pragma once
 
+#include <mutex>
+
 #include "API/MaaTypes.h"
 #include "Base/AsyncRunner.hpp"
 #include "Base/MessageNotifier.hpp"
 #include "Instance/InstanceStatus.h"
 #include "InstanceInternalAPI.hpp"
 #include "Task/PipelineTask.h"
-
-#include <mutex>
 
 MAA_NS_BEGIN
 
@@ -40,14 +40,14 @@ public: // from MaaInstanceAPI
     virtual MaaStatus task_wait(MaaTaskId task_id) const override;
     virtual MaaBool task_all_finished() const override;
 
-    virtual void stop() override;
+    virtual void post_stop() override;
 
     virtual MaaResourceHandle resource() override;
     virtual MaaControllerHandle controller() override;
 
 public: // from InstanceInternalAPI
     virtual MAA_RES_NS::ResourceMgr* inter_resource() override;
-    virtual MAA_CTRL_NS::ControllerMgr* inter_controller() override;
+    virtual MAA_CTRL_NS::ControllerAgent* inter_controller() override;
     virtual InstanceStatus* inter_status() override;
     virtual void notify(std::string_view msg, const json::value& details = json::value()) override;
     virtual MAA_VISION_NS::CustomRecognizerPtr custom_recognizer(const std::string& name) override;

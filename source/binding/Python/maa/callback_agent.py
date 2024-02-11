@@ -1,6 +1,6 @@
 import ctypes
 import json
-from typing import Callable, Any, Optional, Dict
+from typing import Callable, Any, Optional
 
 from .define import MaaApiCallback
 
@@ -13,14 +13,16 @@ class CallbackAgent:
         self._callback = callback
         self._callback_arg = callback_arg
 
+    @property
     def c_callback(self) -> MaaApiCallback:
-        return self._c_callback
+        return self._c_callback_agent
 
+    @property
     def c_callback_arg(self) -> ctypes.c_void_p:
         return ctypes.c_void_p.from_buffer(ctypes.py_object(self))
 
     @MaaApiCallback
-    def _c_callback(
+    def _c_callback_agent(
         msg: ctypes.c_char_p,
         details_json: ctypes.c_char_p,
         callback_arg: ctypes.c_void_p,

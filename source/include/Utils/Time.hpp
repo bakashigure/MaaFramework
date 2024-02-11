@@ -1,15 +1,15 @@
 #pragma once
 
-#include "Utils/Format.hpp"
+#ifdef __APPLE__
+#include <fcntl.h>
+#include <sys/time.h>
+#include <time.h>
+#endif
 
 #include <chrono>
 #include <string>
 
-#ifdef __APPLE__
-#include <ctime>
-#include <fcntl.h>
-#include <sys/time.h>
-#endif
+#include "Utils/Format.hpp"
 
 MAA_NS_BEGIN
 
@@ -28,7 +28,7 @@ inline std::string format_now()
 #endif
 }
 
-inline std::string now_filestem()
+inline std::string format_now_for_filename()
 {
 #ifndef __APPLE__ // Now Apple's compiler cannot build std::chrono::format. 2023/07/21
     return MAA_FMT::format("{:%Y.%m.%d-%H.%M.%S}",
@@ -43,9 +43,10 @@ inline std::string now_filestem()
 #endif
 }
 
-inline std::chrono::milliseconds duration_since(const std::chrono::steady_clock::time_point& start_time)
+template <typename duration_t = std::chrono::milliseconds>
+inline duration_t duration_since(const std::chrono::steady_clock::time_point& start_time)
 {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start_time);
+    return std::chrono::duration_cast<duration_t>(std::chrono::steady_clock::now() - start_time);
 }
 
 MAA_NS_END

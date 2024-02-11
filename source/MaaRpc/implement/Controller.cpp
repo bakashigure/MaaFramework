@@ -3,6 +3,8 @@
 #include "Macro.h"
 #include "Utils/Logger.h"
 
+MAA_RPC_NS_BEGIN
+
 using namespace ::grpc;
 
 Status ControllerImpl::create_adb(::grpc::ServerContext* context, const ::maarpc::AdbControllerRequest* request,
@@ -62,22 +64,6 @@ Status ControllerImpl::destroy(::grpc::ServerContext* context, const ::maarpc::H
     return Status::OK;
 }
 
-static MaaBool _set_option(MaaCtrlOption key, MaaStringView value, MaaTransparentArg arg)
-{
-    auto info = reinterpret_cast<ControllerImpl::CustomControllerInfo*>(arg);
-    auto stream = info->stream;
-
-    ::maarpc::CustomControllerResponse response;
-    response.mutable_set_option()->set_key(key);
-    response.mutable_set_option()->set_value(value);
-    stream->Write(response);
-
-    ::maarpc::CustomControllerRequest request;
-    stream->Read(&request);
-
-    return request.ok();
-}
-
 static MaaBool _connect(MaaTransparentArg arg)
 {
     auto info = reinterpret_cast<ControllerImpl::CustomControllerInfo*>(arg);
@@ -134,7 +120,7 @@ static MaaBool _press_key(int32_t key, MaaTransparentArg arg)
     auto stream = info->stream;
 
     ::maarpc::CustomControllerResponse response;
-    response.mutable_key()->set_key(key);
+    response.mutable_press_key()->set_key(key);
     stream->Write(response);
 
     ::maarpc::CustomControllerRequest request;
@@ -200,7 +186,7 @@ static MaaBool _start_app(MaaStringView entry, MaaTransparentArg arg)
     auto stream = info->stream;
 
     ::maarpc::CustomControllerResponse response;
-    response.set_start(entry);
+    response.set_start_app(entry);
     stream->Write(response);
 
     ::maarpc::CustomControllerRequest request;
@@ -215,7 +201,7 @@ static MaaBool _stop_app(MaaStringView entry, MaaTransparentArg arg)
     auto stream = info->stream;
 
     ::maarpc::CustomControllerResponse response;
-    response.set_stop(entry);
+    response.set_stop_app(entry);
     stream->Write(response);
 
     ::maarpc::CustomControllerRequest request;
@@ -224,13 +210,13 @@ static MaaBool _stop_app(MaaStringView entry, MaaTransparentArg arg)
     return request.ok();
 }
 
-static MaaBool _get_resolution(MaaTransparentArg arg, int32_t* width, int32_t* height)
+static MaaBool _request_resolution(MaaTransparentArg arg, int32_t* width, int32_t* height)
 {
     auto info = reinterpret_cast<ControllerImpl::CustomControllerInfo*>(arg);
     auto stream = info->stream;
 
     ::maarpc::CustomControllerResponse response;
-    response.set_resolution(true);
+    response.set_request_resolution(true);
     stream->Write(response);
 
     ::maarpc::CustomControllerRequest request;
@@ -246,7 +232,7 @@ static MaaBool _get_resolution(MaaTransparentArg arg, int32_t* width, int32_t* h
     return request.ok();
 }
 
-static MaaBool _get_image(MaaTransparentArg arg, MaaImageBufferHandle buffer)
+static MaaBool _screencap(MaaTransparentArg arg, MaaImageBufferHandle buffer)
 {
     auto info = reinterpret_cast<ControllerImpl::CustomControllerInfo*>(arg);
     auto stream = info->stream;
@@ -255,7 +241,7 @@ static MaaBool _get_image(MaaTransparentArg arg, MaaImageBufferHandle buffer)
 
     auto id = make_uuid();
     info->image_impl->handles().add(id, buffer);
-    response.set_image(id);
+    response.set_screencap(id);
 
     stream->Write(response);
 
@@ -267,13 +253,13 @@ static MaaBool _get_image(MaaTransparentArg arg, MaaImageBufferHandle buffer)
     return request.ok();
 }
 
-static MaaBool _get_uuid(MaaTransparentArg arg, MaaStringBufferHandle buffer)
+static MaaBool _request_uuid(MaaTransparentArg arg, MaaStringBufferHandle buffer)
 {
     auto info = reinterpret_cast<ControllerImpl::CustomControllerInfo*>(arg);
     auto stream = info->stream;
 
     ::maarpc::CustomControllerResponse response;
-    response.set_uuid(true);
+    response.set_request_uuid(true);
     stream->Write(response);
 
     ::maarpc::CustomControllerRequest request;
@@ -289,9 +275,20 @@ static MaaBool _get_uuid(MaaTransparentArg arg, MaaStringBufferHandle buffer)
     return request.ok();
 }
 
-static MaaCustomControllerAPI custom_controller_api = { _set_option,     _connect,    _click,    _swipe,     _press_key,
-                                                        _touch_down,     _touch_move, _touch_up, _start_app, _stop_app,
-                                                        _get_resolution, _get_image,  _get_uuid };
+static MaaCustomControllerAPI custom_controller_api = {
+    .connect = _connect,
+    .request_uuid = _request_uuid,
+    .request_resolution = _request_resolution,
+    .start_app = _start_app,
+    .stop_app = _stop_app,
+    .screencap = _screencap,
+    .click = _click,
+    .swipe = _swipe,
+    .touch_down = _touch_down,
+    .touch_move = _touch_move,
+    .touch_up = _touch_up,
+    .press_key = _press_key,
+};
 
 Status ControllerImpl::create_custom(
     ServerContext* context,
@@ -393,6 +390,17 @@ Status ControllerImpl::set_option(::grpc::ServerContext* context, const ::maarpc
             }
         }
         break;
+    case ::maarpc::ControllerSetOptionRequest::kRecording:
+        if (request->has_recording()) {
+            auto rec = request->recording();
+            if (MaaControllerSetOption(handle, MaaCtrlOption_Recording, &rec, sizeof(rec))) {
+                return Status::OK;
+            }
+            else {
+                return Status(UNKNOWN, "MaaControllerSetOption failed");
+            }
+        }
+        break;
     default:
         break;
     }
@@ -466,6 +474,25 @@ Status ControllerImpl::post_press_key(::grpc::ServerContext* context, const ::ma
     MAA_GRPC_GET_HANDLE
 
     response->set_id(MaaControllerPostPressKey(handle, param.key()));
+
+    return Status::OK;
+}
+
+::grpc::Status ControllerImpl::post_input_text(::grpc::ServerContext* context,
+                                               const ::maarpc::ControllerInputTextRequest* request,
+                                               ::maarpc::IIdResponse* response)
+{
+    LogFunc;
+    std::ignore = context;
+
+    MAA_GRPC_REQUIRED(handle)
+    MAA_GRPC_REQUIRED(param)
+
+    const auto& param = request->param();
+
+    MAA_GRPC_GET_HANDLE
+
+    response->set_id(MaaControllerPostInputText(handle, param.text().c_str()));
 
     return Status::OK;
 }
@@ -634,3 +661,5 @@ Status ControllerImpl::uuid(::grpc::ServerContext* context, const ::maarpc::Hand
         return Status(UNKNOWN, "MaaControllerGetUUID failed");
     }
 }
+
+MAA_RPC_NS_END

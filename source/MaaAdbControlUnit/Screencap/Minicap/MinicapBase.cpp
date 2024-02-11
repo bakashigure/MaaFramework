@@ -1,73 +1,33 @@
 #include "MinicapBase.h"
 
+#include <array>
+#include <ranges>
+
 #include "Utils/Format.hpp"
 #include "Utils/Logger.h"
 #include "Utils/NoWarningCV.hpp"
-#include "Utils/Ranges.hpp"
 
-#include <array>
-
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 bool MinicapBase::parse(const json::value& config)
 {
-    auto popt = config.find<json::object>("prebuilt");
-    if (!popt) {
-        LogError << "Cannot find entry prebuilt";
+    static const json::array kDefaultArch = {
+        "x86",
+        "armeabi-v7a",
+        "armeabi",
+    };
+    json::array jarch = config.get("prebuilt", "minicap", "arch", kDefaultArch);
+
+    if (!jarch.all<std::string>()) {
         return false;
     }
+    arch_list_ = jarch.as_collection<std::string>();
 
-    auto mopt = popt->find<json::object>("minicap");
-    if (!mopt) {
-        LogError << "Cannot find entry prebuilt.minicap";
-        return false;
-    }
-
-    {
-        auto opt = mopt->find<json::value>("arch");
-        if (!opt) {
-            LogError << "Cannot find entry prebuilt.minicap.arch";
-            return false;
-        }
-
-        const auto& value = *opt;
-        if (!value.is_array()) {
-            return false;
-        }
-
-        const auto& arr = value.as_array();
-        if (MAA_RNS::ranges::any_of(arr, [](const json::value& val) { return !val.is_string(); })) {
-            return false;
-        }
-
-        arch_list_.clear();
-        arch_list_.reserve(arr.size());
-        MAA_RNS::ranges::transform(arr, std::back_inserter(arch_list_),
-                                   [](const json::value& val) { return val.as_string(); });
-    }
-
-    {
-        auto opt = mopt->find<json::value>("sdk");
-        if (!opt) {
-            LogError << "Cannot find entry prebuilt.minicap.sdk";
-            return false;
-        }
-
-        const auto& value = *opt;
-        if (!value.is_array()) {
-            return false;
-        }
-
-        const auto& arr = value.as_array();
-        if (MAA_RNS::ranges::any_of(arr, [](const json::value& val) { return !val.is_number(); })) {
-            return false;
-        }
-
-        sdk_list_.clear();
-        sdk_list_.reserve(arr.size());
-        MAA_RNS::ranges::transform(arr, std::back_inserter(sdk_list_),
-                                   [](const json::value& val) { return val.as_integer(); });
-    }
+    static const json::array kDefaultSdk = {
+        31, 29, 28, 27, 26, 25, 24, 23, 22, 21, 19, 18, 17, 16, 15, 14,
+    };
+    json::array jsdk = config.get("prebuilt", "minicap", "sdk", kDefaultSdk);
+    sdk_list_ = jsdk.as_collection<int>();
 
     return binary_->parse(config) && library_->parse(config);
 }
@@ -78,29 +38,24 @@ bool MinicapBase::init(int swidth, int sheight)
 {
     LogFunc;
 
-    if (!io_ptr_) {
-        LogError << "io_ptr is nullptr";
-        return false;
-    }
-
     if (!binary_->init() || !library_->init("minicap.so")) {
         return false;
     }
 
-    auto archs = binary_->abilist();
-    auto sdk = binary_->sdk();
+    auto archs_opt = binary_->abilist();
+    auto sdk_opt = binary_->sdk();
 
-    if (!archs || !sdk) {
+    if (!archs_opt || !sdk_opt) {
         return false;
     }
 
-    auto arch_iter = MAA_RNS::ranges::find_first_of(*archs, arch_list_);
-    if (arch_iter == archs->end()) {
+    auto arch_iter = std::ranges::find_first_of(*archs_opt, arch_list_);
+    if (arch_iter == archs_opt->end()) {
         return false;
     }
     const std::string& target_arch = *arch_iter;
 
-    auto sdk_iter = MAA_RNS::ranges::find_if(sdk_list_, [sdk](int s) { return s <= sdk.value(); });
+    auto sdk_iter = std::ranges::find_if(sdk_list_, [sdk_opt](int s) { return s <= sdk_opt.value(); });
     if (sdk_iter == sdk_list_.end()) {
         return false;
     }
@@ -121,4 +76,4 @@ bool MinicapBase::init(int swidth, int sheight)
     return set_wh(swidth, sheight);
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

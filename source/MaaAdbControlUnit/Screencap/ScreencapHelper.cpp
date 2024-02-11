@@ -12,7 +12,7 @@
 #pragma warning(pop)
 #endif
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 bool ScreencapHelper::set_wh(int w, int h)
 {
@@ -106,7 +106,7 @@ std::optional<cv::Mat> ScreencapHelper::decode_raw(const std::string& buffer)
     memcpy(&im_width, data, 4);
     memcpy(&im_height, data + 4, 4);
 
-    if (int(im_width) != width_ || int(im_height) != height_) {
+    if (static_cast<int>(im_width) != width_ || static_cast<int>(im_height) != height_) {
         LogError << "screencap size image" << VAR(im_width) << VAR(im_height) << "don't match" << VAR(width_)
                  << VAR(height_);
         return std::nullopt;
@@ -152,10 +152,7 @@ std::optional<cv::Mat> ScreencapHelper::trunc_decode_jpg(const std::string& buff
 {
     auto pos = buffer.find("\xFF\xD8\xFF");
     auto truncbuf = buffer.substr(pos);
-    if (!check_head_tail(truncbuf, "\xFF\xD8\xFF", "\xFF\xD9")) {
-        return std::nullopt;
-    }
-    return decode(truncbuf);
+    return decode_jpg(truncbuf);
 }
 
 std::optional<cv::Mat> ScreencapHelper::decode_jpg(const std::string& buffer)
@@ -168,7 +165,7 @@ std::optional<cv::Mat> ScreencapHelper::decode_jpg(const std::string& buffer)
 
 std::optional<cv::Mat> ScreencapHelper::decode(const std::string& buffer)
 {
-    cv::Mat img = cv::imdecode({ buffer.data(), int(buffer.size()) }, cv::IMREAD_COLOR);
+    cv::Mat img = cv::imdecode({ buffer.data(), static_cast<int>(buffer.size()) }, cv::IMREAD_COLOR);
     return img.empty() ? std::nullopt : std::make_optional(img);
 }
 
@@ -220,4 +217,4 @@ bool ScreencapHelper::check_head_tail(std::string_view input, std::string_view h
     return true;
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

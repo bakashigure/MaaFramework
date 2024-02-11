@@ -6,7 +6,7 @@
 
 #include "Record.h"
 
-MAA_DBG_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class RecordParser
 {
@@ -20,9 +20,10 @@ private:
     static std::optional<Record::Param> parse_swipe(const json::value& record_json);
     static std::optional<Record::Param> parse_touch(const json::value& record_json);
     static std::optional<Record::Param> parse_press_key(const json::value& record_json);
+    static std::optional<Record::Param> parse_input_text(const json::value& record_json);
     static std::optional<Record::Param> parse_screencap(const json::value& record_json,
                                                         const std::filesystem::path& dir);
     static std::optional<Record::Param> parse_app(const json::value& record_json);
 };
 
-MAA_DBG_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

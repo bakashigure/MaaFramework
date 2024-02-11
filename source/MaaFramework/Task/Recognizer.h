@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stack>
 #include <string_view>
 
 #include <meojson/json.hpp>
@@ -9,8 +10,6 @@
 #include "Instance/InstanceInternalAPI.hpp"
 #include "Resource/PipelineResMgr.h"
 #include "Resource/PipelineTypes.h"
-
-#include <stack>
 
 MAA_TASK_NS_BEGIN
 
@@ -26,7 +25,7 @@ public:
     };
 
 public:
-    Recognizer(InstanceInternalAPI* inst);
+    explicit Recognizer(InstanceInternalAPI* inst);
 
 public:
     std::optional<Result> recognize(const cv::Mat& image, const TaskData& task_data);
@@ -46,6 +45,8 @@ private:
                                  const std::string& name);
     std::optional<Result> custom_recognize(const cv::Mat& image, const MAA_VISION_NS::CustomRecognizerParam& param,
                                            const std::string& name);
+
+    void show_hit_draw(const cv::Mat& image, const Result& res, const std::string& task_name) const;
 
 private:
     InstanceStatus* status() { return inst_ ? inst_->inter_status() : nullptr; }

@@ -1,18 +1,17 @@
 #pragma once
 
-#include "MtouchHelper.h"
-#include "UnitBase.h"
-
 #include <filesystem>
 
+#include "Base/UnitBase.h"
 #include "Invoke/InvokeApp.h"
+#include "MtouchHelper.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class MaatouchInput : public MtouchHelper, public KeyInputBase
 {
 public:
-    MaatouchInput(std::filesystem::path agent_path) : agent_path_(std::move(agent_path))
+    explicit MaatouchInput(std::filesystem::path agent_path) : agent_path_(std::move(agent_path))
     {
         TouchInputBase::children_.emplace_back(invoke_app_);
         KeyInputBase::children_.emplace_back(invoke_app_);
@@ -22,17 +21,12 @@ public:
 public: // from UnitBase
     virtual bool parse(const json::value& config) override;
 
-    virtual void set_io(std::shared_ptr<PlatformIO> io_ptr) override
-    {
-        TouchInputBase::set_io(io_ptr);
-        KeyInputBase::set_io(io_ptr);
-    }
-    virtual void set_replacement(Argv::replacement argv_replace) override
+    virtual void set_replacement(UnitBase::Replacement argv_replace) override
     {
         TouchInputBase::set_replacement(argv_replace);
         KeyInputBase::set_replacement(argv_replace);
     }
-    virtual void merge_replacement(Argv::replacement argv_replace, bool _override = true) override
+    virtual void merge_replacement(UnitBase::Replacement argv_replace, bool _override = true) override
     {
         TouchInputBase::merge_replacement(argv_replace, _override);
         KeyInputBase::merge_replacement(argv_replace, _override);
@@ -45,6 +39,7 @@ public: // from TouchInputAPI
 
 public: // from KeyInputAPI
     virtual bool press_key(int key) override;
+    virtual bool input_text(const std::string& text) override;
 
 protected: // from MtouchHelper
     virtual std::pair<int, int> screen_to_touch(int x, int y) override { return _screen_to_touch(x, y); }
@@ -62,4 +57,4 @@ private:
     std::shared_ptr<InvokeApp> invoke_app_ = std::make_shared<InvokeApp>();
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

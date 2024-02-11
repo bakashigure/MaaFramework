@@ -1,3 +1,7 @@
+#include "Context.h"
+
+#include <grpcpp/server_builder.h>
+
 #include "Buffer.h"
 #include "Config.h"
 #include "Controller.h"
@@ -8,9 +12,7 @@
 #include "Utility.h"
 #include "Utils/Logger.h"
 
-#include <grpcpp/server_builder.h>
-
-#include "Context.h"
+MAA_RPC_NS_BEGIN
 
 Context::Context()
     : utility_impl_(std::make_shared<UtilityImpl>()), image_impl_(std::make_shared<ImageImpl>()),
@@ -33,3 +35,5 @@ void Context::reg_service(::grpc::ServerBuilder& builder)
     builder.RegisterService(device_impl_.get());
     builder.RegisterService(config_impl_.get());
 }
+
+MAA_RPC_NS_END

@@ -3,7 +3,9 @@
 #include "AtomicMap.h"
 #include "Buffer.h"
 #include "MaaFramework/MaaDef.h"
-#include "sync.context.grpc.pb.h"
+#include "generated/sync.context.grpc.pb.h"
+
+MAA_RPC_NS_BEGIN
 
 class SyncContextImpl final : public ::maarpc::SyncContext::Service
 {
@@ -40,3 +42,5 @@ private:
     std::shared_ptr<ImageImpl> image_impl_ = nullptr;
     AtomicMap<MaaSyncContextHandle> handles_;
 };
+
+MAA_RPC_NS_END

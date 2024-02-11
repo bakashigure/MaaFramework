@@ -6,12 +6,12 @@
 
 #include "Invoke/InvokeApp.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class MinitouchInput : public MtouchHelper
 {
 public:
-    MinitouchInput(std::filesystem::path agent_path) : agent_path_(std::move(agent_path))
+    explicit MinitouchInput(std::filesystem::path agent_path) : agent_path_(std::move(agent_path))
     {
         children_.emplace_back(invoke_app_);
     }
@@ -55,4 +55,4 @@ private:
     std::shared_ptr<InvokeApp> invoke_app_ = std::make_shared<InvokeApp>();
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

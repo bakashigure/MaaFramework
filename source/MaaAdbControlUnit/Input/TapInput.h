@@ -1,8 +1,8 @@
 #pragma once
 
-#include "UnitBase.h"
+#include "Base/UnitBase.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class TapTouchInput : public TouchInputBase
 {
@@ -25,8 +25,8 @@ public: // from TouchInputAPI
     virtual bool touch_up(int contact) override;
 
 private:
-    Argv click_argv_;
-    Argv swipe_argv_;
+    ProcessArgvGenerator click_argv_;
+    ProcessArgvGenerator swipe_argv_;
 };
 
 class TapKeyInput : public KeyInputBase
@@ -39,9 +39,11 @@ public: // from UnitBase
 
 public: // from KeyInputAPI
     virtual bool press_key(int key) override;
+    virtual bool input_text(const std::string& text) override;
 
 private:
-    Argv press_key_argv_;
+    ProcessArgvGenerator press_key_argv_;
+    ProcessArgvGenerator input_text_argv_;
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

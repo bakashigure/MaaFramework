@@ -3,7 +3,9 @@
 #include "AtomicMap.h"
 #include "MaaFramework/MaaDef.h"
 #include "Utility.h"
-#include "resource.grpc.pb.h"
+#include "generated/resource.grpc.pb.h"
+
+MAA_RPC_NS_BEGIN
 
 class ResourceImpl final : public ::maarpc::Resource::Service
 {
@@ -24,6 +26,8 @@ public:
                           ::maarpc::BoolResponse* response) override;
     ::grpc::Status hash(::grpc::ServerContext* context, const ::maarpc::HandleRequest* request,
                         ::maarpc::StringResponse* response) override;
+    ::grpc::Status task_list(::grpc::ServerContext* context, const ::maarpc::HandleRequest* request,
+                             ::maarpc::StringResponse* response) override;
 
     AtomicMap<MaaResourceHandle>& handles() { return handles_; }
 
@@ -31,3 +35,5 @@ private:
     std::shared_ptr<UtilityImpl> utility_impl_ = nullptr;
     AtomicMap<MaaResourceHandle> handles_;
 };
+
+MAA_RPC_NS_END

@@ -1,6 +1,6 @@
 #include "Actuator.h"
 
-#include "Controller/ControllerMgr.h"
+#include "Controller/ControllerAgent.h"
 #include "Instance/InstanceStatus.h"
 #include "Task/CustomAction.h"
 #include "Utils/Logger.h"
@@ -31,6 +31,9 @@ bool Actuator::run(const Recognizer::Result& rec_result, const TaskData& task_da
         break;
     case Type::Key:
         ret = press_key(std::get<KeyParam>(task_data.action_param));
+        break;
+    case Type::Text:
+        ret = input_text(std::get<TextParam>(task_data.action_param));
         break;
     case Type::StartApp:
         ret = start_app(std::get<AppParam>(task_data.action_param));
@@ -93,6 +96,15 @@ bool Actuator::press_key(const MAA_RES_NS::Action::KeyParam& param)
         ret &= controller()->press_key(key);
     }
     return ret;
+}
+
+bool Actuator::input_text(const MAA_RES_NS::Action::TextParam& param)
+{
+    if (!controller()) {
+        LogError << "Controller is null";
+        return false;
+    }
+    return controller()->input_text(param.text);
 }
 
 void Actuator::wait_freezes(const MAA_RES_NS::WaitFreezesParam& param, const cv::Rect& cur_box)
@@ -229,7 +241,7 @@ void Actuator::sleep(std::chrono::milliseconds ms) const
 
     auto interval = std::min(ms, 5000ms);
 
-    LogDebug << "ready to sleep" << ms << VAR(interval);
+    LogTrace << "ready to sleep" << ms << VAR(interval);
 
     for (auto sleep_time = interval; sleep_time <= ms && !need_exit(); sleep_time += interval) {
         std::this_thread::sleep_for(interval);
@@ -238,7 +250,7 @@ void Actuator::sleep(std::chrono::milliseconds ms) const
         std::this_thread::sleep_for(ms % interval);
     }
 
-    LogDebug << "end of sleep" << ms << VAR(interval);
+    LogTrace << "end of sleep" << ms << VAR(interval);
 }
 
 MAA_TASK_NS_END

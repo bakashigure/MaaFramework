@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Utils/NonCopyable.hpp"
-
 #include <filesystem>
 #include <set>
 #include <unordered_map>
@@ -10,6 +8,7 @@
 
 #include "Conf/Conf.h"
 #include "PipelineTypes.h"
+#include "Utils/NonCopyable.hpp"
 
 MAA_RES_NS_BEGIN
 
@@ -26,6 +25,7 @@ public:
 
     const std::vector<std::filesystem::path>& get_paths() const { return paths_; }
     const TaskDataMap& get_task_data_map() const { return task_data_map_; }
+    std::vector<std::string> get_task_list() const;
 
 public:
     static bool parse_config(const json::value& input, TaskDataMap& output, std::set<std::string>& existing_keys,
@@ -43,7 +43,7 @@ public:
                                             const MAA_VISION_NS::FeatureMatcherParam& default_value);
     static bool parse_ocrer_param(const json::value& input, MAA_VISION_NS::OCRerParam& output,
                                   const MAA_VISION_NS::OCRerParam& default_value);
-    static bool parse_custom_recognizer_param(const json::value& input, MAA_VISION_NS::CustomRecognizerParam& output,
+    static bool parse_custom_recognition_param(const json::value& input, MAA_VISION_NS::CustomRecognizerParam& output,
                                               const MAA_VISION_NS::CustomRecognizerParam& default_value);
     static bool parse_nn_classifier_param(const json::value& input, MAA_VISION_NS::NeuralNetworkClassifierParam& output,
                                           const MAA_VISION_NS::NeuralNetworkClassifierParam& default_value);
@@ -61,8 +61,10 @@ public:
                             const Action::ClickParam& default_value);
     static bool parse_swipe(const json::value& input, Action::SwipeParam& output,
                             const Action::SwipeParam& default_value);
-    static bool parse_key_press(const json::value& input, Action::KeyParam& output,
+    static bool parse_press_key(const json::value& input, Action::KeyParam& output,
                                 const Action::KeyParam& default_value);
+    static bool parse_input_text(const json::value& input, Action::TextParam& output,
+                                 const Action::TextParam& default_value);
     static bool parse_app_info(const json::value& input, Action::AppParam& output,
                                const Action::AppParam& default_value);
     static bool parse_custom_action_param(const json::value& input, Action::CustomParam& output,

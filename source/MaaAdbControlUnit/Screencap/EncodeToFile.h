@@ -1,10 +1,10 @@
 #pragma once
 
-#include "UnitBase.h"
+#include "Base/UnitBase.h"
 
 #include "ScreencapHelper.h"
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 class ScreencapEncodeToFileAndPull : public ScreencapBase
 {
@@ -21,10 +21,10 @@ public: // from ScreencapAPI
     virtual std::optional<cv::Mat> screencap() override;
 
 private:
-    Argv screencap_encode_to_file_argv_;
-    Argv pull_file_argv_;
+    ProcessArgvGenerator screencap_encode_to_file_argv_;
+    ProcessArgvGenerator pull_file_argv_;
 
     std::string tempname_;
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

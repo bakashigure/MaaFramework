@@ -1,12 +1,13 @@
 #include "FastestWay.h"
 
+#include <ranges>
+#include <unordered_set>
+
 #include "Utils/Format.hpp"
 #include "Utils/Logger.h"
 #include "Utils/NoWarningCV.hpp"
 
-#include <unordered_set>
-
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
 ScreencapFastestWay::ScreencapFastestWay(const std::filesystem::path& minicap_path)
 {
@@ -15,21 +16,29 @@ ScreencapFastestWay::ScreencapFastestWay(const std::filesystem::path& minicap_pa
         { Method::RawWithGzip, std::make_shared<ScreencapRawWithGzip>() },
         { Method::Encode, std::make_shared<ScreencapEncode>() },
         { Method::EncodeToFileAndPull, std::make_shared<ScreencapEncodeToFileAndPull>() },
-        { Method::MinicapDirect, std::make_shared<MinicapDirect>(minicap_path) },
-        { Method::MinicapStream, std::make_shared<MinicapStream>(minicap_path) },
     };
 
-    for (auto pair : units_) {
-        children_.emplace_back(pair.second);
+    if (std::filesystem::exists(minicap_path)) {
+        units_.merge(decltype(units_) {
+            { Method::MinicapDirect, std::make_shared<MinicapDirect>(minicap_path) },
+            { Method::MinicapStream, std::make_shared<MinicapStream>(minicap_path) },
+        });
+    }
+    else {
+        LogWarn << "minicap path not exists" << VAR(minicap_path);
+    }
+
+    for (auto& unit : units_ | std::views::values) {
+        children_.emplace_back(unit);
     }
 }
 
 bool ScreencapFastestWay::parse(const json::value& config)
 {
     bool ret = false;
-    for (auto pair : units_) {
+    for (auto& unit : units_ | std::views::values) {
         // TODO: 也许可以考虑删除无法初始化的unit
-        ret |= pair.second->parse(config);
+        ret |= unit->parse(config);
     }
     return ret;
 }
@@ -38,8 +47,8 @@ bool ScreencapFastestWay::init(int swidth, int sheight)
 {
     LogFunc;
 
-    for (auto pair : units_) {
-        pair.second->init(swidth, sheight);
+    for (auto& unit : units_ | std::views::values) {
+        unit->init(swidth, sheight);
     }
 
     return speed_test();
@@ -49,8 +58,8 @@ void ScreencapFastestWay::deinit()
 {
     LogFunc;
 
-    for (auto pair : units_) {
-        pair.second->deinit();
+    for (auto& unit : units_ | std::views::values) {
+        unit->deinit();
     }
 
     method_ = Method::UnknownYet;
@@ -60,8 +69,8 @@ bool ScreencapFastestWay::set_wh(int swidth, int sheight)
 {
     LogFunc << VAR(swidth) << VAR(sheight);
 
-    for (auto pair : units_) {
-        pair.second->set_wh(swidth, sheight);
+    for (auto& unit : units_ | std::views::values) {
+        unit->set_wh(swidth, sheight);
     }
 
     return true;
@@ -107,16 +116,18 @@ bool ScreencapFastestWay::speed_test()
     // MinicapStream 是直接取数据，只取一次不准
     const std::unordered_set<Method> kDropFirst = { Method::RawByNetcat, Method::MinicapStream };
 
-    for (auto pair : units_) {
-        if (kDropFirst.contains(pair.first)) {
-            if (!pair.second->screencap()) {
+    for (auto& [method, unit] : units_) {
+        if (kDropFirst.contains(method)) {
+            LogDebug << "Testing" << method << "drop first";
+            if (!unit->screencap()) {
                 continue;
             }
         }
 
+        LogDebug << "Testing" << method;
         auto now = std::chrono::steady_clock::now();
-        if (pair.second->screencap()) {
-            check(pair.first, now);
+        if (unit->screencap()) {
+            check(method, now);
         }
     }
 
@@ -126,6 +137,13 @@ bool ScreencapFastestWay::speed_test()
     }
 
     LogInfo << "The fastest method is" << method_ << VAR(cost);
+    for (auto& [method, unit] : units_) {
+        if (method == method_) {
+            continue;
+        }
+        unit->deinit();
+    }
+
     return true;
 }
 
@@ -157,4 +175,4 @@ std::ostream& operator<<(std::ostream& os, ScreencapFastestWay::Method m)
     return os;
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

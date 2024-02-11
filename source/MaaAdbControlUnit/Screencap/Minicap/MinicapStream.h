@@ -5,7 +5,10 @@
 #include <condition_variable>
 #include <thread>
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+#include "Utils/IOStream/ChildPipeIOStream.h"
+#include "Utils/IOStream/SockIOStream.h"
+
+MAA_CTRL_UNIT_NS_BEGIN
 
 class MinicapStream : public MinicapBase
 {
@@ -19,15 +22,17 @@ public: // from UnitBase
 
 public: // from ScreencapAPI
     virtual bool init(int swidth, int sheight) override;
-
+    virtual void deinit() override;
     virtual std::optional<cv::Mat> screencap() override;
 
 private:
-    bool read_until(std::string& buffer, size_t size);
-    bool take_out(void* out, size_t size);
-    void working_thread();
+    std::optional<std::string> read(size_t count);
+    void release_thread();
 
-    Argv forward_argv_;
+    void pulling();
+
+    ProcessArgvGenerator forward_argv_;
+    int port_ = 0;
 
     bool quit_ = true;
     std::mutex mutex_;
@@ -35,8 +40,8 @@ private:
     std::condition_variable cond_;
     std::thread pull_thread_;
 
-    std::shared_ptr<IOHandler> process_handle_;
-    std::shared_ptr<IOHandler> stream_handle_;
+    std::shared_ptr<ChildPipeIOStream> pipe_ios_ = nullptr;
+    std::shared_ptr<SockIOStream> sock_ios_ = nullptr;
 };
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

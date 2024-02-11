@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Conf/Conf.h"
+#include "Utils/JsonExt.hpp"
 #include "Utils/NoWarningCVMat.hpp"
 
 MAA_VISION_NS_BEGIN
@@ -30,7 +31,6 @@ private:
 
 private:
     bool save_draw_ = false;
-    bool show_draw_ = false;
 };
 
 MAA_VISION_NS_END

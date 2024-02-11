@@ -1,10 +1,10 @@
 #include "OCRer.h"
 
+#include <ranges>
 #include <regex>
 
 #include "Utils/ImageIo.h"
 #include "Utils/Logger.h"
-#include "Utils/Ranges.hpp"
 #include "Utils/StringMisc.hpp"
 
 MAA_VISION_NS_BEGIN
@@ -16,13 +16,13 @@ OCRer::ResultsVec OCRer::analyze() const
     ResultsVec results = foreach_rois();
 
     auto cost = duration_since(start_time);
-    LogDebug << name_ << "Raw:" << VAR(results) << VAR(param_.model) << VAR(cost);
+    LogTrace << name_ << "Raw:" << VAR(results) << VAR(param_.model) << VAR(cost);
 
     const auto& expected = param_.text;
     postproc_and_filter(results, expected);
 
     cost = duration_since(start_time);
-    LogDebug << name_ << "Proc:" << VAR(results) << VAR(expected) << VAR(param_.model) << VAR(cost);
+    LogTrace << name_ << "Proc:" << VAR(results) << VAR(expected) << VAR(param_.model) << VAR(cost);
     return results;
 }
 
@@ -88,8 +88,8 @@ OCRer::ResultsVec OCRer::predict_det_and_rec(const cv::Rect& roi) const
         const auto& raw_box = ocr_result.boxes.at(i);
         int x_collect[] = { raw_box[0], raw_box[2], raw_box[4], raw_box[6] };
         int y_collect[] = { raw_box[1], raw_box[3], raw_box[5], raw_box[7] };
-        auto [left, right] = MAA_RNS::ranges::minmax(x_collect);
-        auto [top, bottom] = MAA_RNS::ranges::minmax(y_collect);
+        auto [left, right] = std::ranges::minmax(x_collect);
+        auto [top, bottom] = std::ranges::minmax(y_collect);
 
         auto text = to_u16(ocr_result.text.at(i));
         cv::Rect my_box(left + roi.x, top + roi.y, right - left, bottom - top);

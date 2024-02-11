@@ -72,6 +72,7 @@ void Logger::start_logging(std::filesystem::path dir)
 {
     log_dir_ = std::move(dir);
     log_path_ = log_dir_ / kLogFilename;
+    dumps_dir_ = log_dir_ / kDumpsDirname;
     reinit();
 }
 
@@ -112,18 +113,23 @@ bool Logger::rotate()
         ofs_.close();
     }
 
-    constexpr uintmax_t MaxLogSize = 4ULL * 1024 * 1024;
+    constexpr uintmax_t MaxLogSize = 16ULL * 1024 * 1024;
     const uintmax_t log_size = std::filesystem::file_size(log_path_);
     if (log_size < MaxLogSize) {
         return false;
     }
 
+    std::error_code ec;
+
     const std::filesystem::path bak_path = log_dir_ / kLogbakFilename;
-    try {
-        std::filesystem::rename(log_path_, bak_path);
+    std::filesystem::rename(log_path_, bak_path, ec);
+
+    const std::filesystem::path dumps_bak_path = log_dir_ / kDumpsbakDirname;
+    if (std::filesystem::exists(dumps_bak_path)) {
+        std::filesystem::remove_all(dumps_bak_path, ec);
     }
-    catch (...) {
-        return false;
+    if (std::filesystem::exists(dumps_dir_)) {
+        std::filesystem::rename(dumps_dir_, dumps_bak_path, ec);
     }
 
     return true;

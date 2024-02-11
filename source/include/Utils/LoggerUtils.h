@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <ranges>
 #include <thread>
 #include <tuple>
 #include <type_traits>
@@ -18,11 +19,18 @@
 #include "MaaFramework/MaaDef.h"
 #include "MaaFramework/MaaPort.h"
 
+#include "Codec.h"
 #include "Format.hpp"
+#include "ImageIo.h"
 #include "Locale.hpp"
 #include "Platform.h"
-#include "Ranges.hpp"
 #include "Time.hpp"
+#include "Uuid.h"
+
+namespace cv
+{
+class Mat;
+}
 
 MAA_LOG_NS_BEGIN
 
@@ -32,18 +40,6 @@ inline std::ostream& operator<<(std::ostream& os, const std::chrono::millisecond
     return os << ms.count() << "ms";
 }
 #endif
-
-template <typename T>
-inline std::ostream& operator<<(std::ostream& os, const std::optional<T>& v)
-{
-    if (v) {
-        os << *v;
-    }
-    else {
-        os << "<nullopt>";
-    }
-    return os;
-}
 
 enum class level
 {
@@ -57,7 +53,7 @@ enum class level
 
 struct MAA_UTILS_API separator
 {
-    constexpr separator(std::string_view s) noexcept : str(s) {}
+    explicit constexpr separator(std::string_view s) noexcept : str(s) {}
 
     static const separator none;
     static const separator space;
@@ -71,34 +67,44 @@ struct MAA_UTILS_API separator
 template <typename T>
 concept has_output_operator = requires { std::declval<std::ostream&>() << std::declval<T>(); };
 
-struct StringConverter
+class StringConverter
 {
-    template <typename T>
-    static constexpr bool is_convertible = std::same_as<std::filesystem::path, std::decay_t<T>> ||
-                                           std::same_as<std::wstring, std::decay_t<T>> || has_output_operator<T>;
+public:
+    StringConverter(std::filesystem::path dumps_dir) : dumps_dir_(std::move(dumps_dir)) {}
 
-    template <typename T>
-    std::string operator()(T&& value) const
+public:
+    std::string operator()(const std::filesystem::path& path) const { return path_to_utf8_string(path); }
+    std::string operator()(const std::wstring& wstr) const { return from_u16(wstr); }
+    std::string operator()(const cv::Mat& image) const
     {
-        if constexpr (std::is_function_v<std::remove_pointer_t<std::decay_t<T>>>) {
-            static_assert(!sizeof(T), "Function type is not supported");
+        if (dumps_dir_.empty()) {
+            return "Not logging";
         }
-        else if constexpr (std::same_as<std::filesystem::path, std::decay_t<T>>) {
-            return path_to_utf8_string(std::forward<T>(value));
+        if (image.empty()) {
+            return "Empty image";
         }
-        else if constexpr (std::same_as<std::wstring, std::decay_t<T>>) {
-            return from_u16(std::forward<T>(value));
+
+        std::string filename = MAA_FMT::format("{}-{}.png", format_now_for_filename(), make_uuid());
+        auto filepath = dumps_dir_ / std::move(filename);
+        bool ret = MAA_NS::imwrite(filepath, image);
+        if (!ret) {
+            return "Failed to write image";
         }
-        else if constexpr (has_output_operator<T>) {
-            return to_stringstream(std::forward<T>(value));
-        }
-        else {
-            return json::serialize<true>(std::forward<T>(value), *this).to_string();
-        }
+        return this->operator()(filepath);
     }
 
     template <typename T>
-    std::string to_stringstream(T&& value) const
+    std::string operator()(std::optional<T>&& value) const
+    {
+        if (!value) {
+            return nullptr;
+        }
+        return this->operator()(std::forward<T>(*value));
+    }
+
+    template <typename T>
+    requires has_output_operator<T>
+    std::string operator()(T&& value) const
     {
         std::stringstream ss;
         if constexpr (std::same_as<bool, std::decay_t<T>>) {
@@ -107,14 +113,28 @@ struct StringConverter
         ss << std::forward<T>(value);
         return std::move(ss).str();
     }
+
+    template <typename T>
+    requires(std::is_function_v<std::remove_pointer_t<std::decay_t<T>>>)
+    void operator()(T&&) const
+    {
+        static_assert(!sizeof(T), "Function type is not supported.");
+    }
+
+private:
+    const std::filesystem::path dumps_dir_;
 };
+
+template <typename T>
+concept string_convertible = requires { std::declval<StringConverter>()(std::declval<T>()); };
 
 class MAA_UTILS_API LogStream
 {
 public:
     template <typename... args_t>
-    LogStream(std::mutex& m, std::ofstream& s, level lv, bool std_out, args_t&&... args)
-        : mutex_(m), stream_(s), lv_(lv), stdout_(std_out)
+    LogStream(std::mutex& m, std::ofstream& s, level lv, bool std_out, std::filesystem::path dumps_dir,
+              args_t&&... args)
+        : mutex_(m), stream_(s), lv_(lv), stdout_(std_out), string_converter_(std::move(dumps_dir))
     {
         stream_props(std::forward<args_t>(args)...);
     }
@@ -137,16 +157,27 @@ public:
             sep_ = std::forward<T>(value);
         }
         else {
-            stream(std::forward<T>(value));
+            stream(std::forward<T>(value), sep_);
         }
+        return *this;
+    }
+    template <typename T>
+    LogStream& operator,(T&& value)
+    {
+        stream(std::forward<T>(value), separator::none);
         return *this;
     }
 
 private:
     template <typename T>
-    void stream(T&& value)
+    void stream(T&& value, const separator& sep)
     {
-        buffer_ << string_converter_(std::forward<T>(value)) << sep_.str;
+        if constexpr (string_convertible<T>) {
+            buffer_ << string_converter_(std::forward<T>(value)) << sep.str;
+        }
+        else {
+            buffer_ << json::serialize(std::forward<T>(value), string_converter_).dumps() << sep.str;
+        }
     }
 
     template <typename... args_t>
@@ -157,13 +188,13 @@ private:
 #else
         int pid = ::getpid();
 #endif
-        auto tid = static_cast<unsigned short>(std::hash<std::thread::id> {}(std::this_thread::get_id()));
+        auto tid = static_cast<uint16_t>(std::hash<std::thread::id> {}(std::this_thread::get_id()));
 
         std::string props = MAA_FMT::format("[{}][{}][Px{}][Tx{}]", format_now(), level_str(), pid, tid);
         for (auto&& arg : { args... }) {
             props += MAA_FMT::format("[{}]", arg);
         }
-        stream(props);
+        stream(props, sep_);
     }
 
     std::string stdout_string();
@@ -174,7 +205,7 @@ private:
     std::ofstream& stream_;
     const level lv_ = level::fatal;
     const bool stdout_ = false;
-    const StringConverter string_converter_ {};
+    const StringConverter string_converter_;
 
     separator sep_ = separator::space;
     std::stringstream buffer_;

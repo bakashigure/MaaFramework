@@ -3,12 +3,16 @@ import ctypes.util
 import pathlib
 import os
 import platform
-from typing import Union
+from typing import Union, Optional
+
+from .define import MaaStringView
 
 
 class Library:
     @classmethod
-    def open(cls, path: Union[pathlib.Path, str], toolkit: bool = True) -> bool:
+    def open(
+        cls, path: Union[pathlib.Path, str], toolkit: bool = True
+    ) -> Optional[str]:
         """
         Open the library at the given path.
 
@@ -19,17 +23,17 @@ class Library:
         platform_values = {
             "windows": {
                 "framework_libpath": "MaaFramework.dll",
-                "toolkit_libpath": "MaaToolKit.dll",
+                "toolkit_libpath": "MaaToolkit.dll",
                 "environ_var": "PATH",
             },
             "darwin": {
                 "framework_libpath": "libMaaFramework.dylib",
-                "toolkit_libpath": "libMaaToolKit.dylib",
+                "toolkit_libpath": "libMaaToolkit.dylib",
                 "environ_var": "DYLD_LIBRARY_PATH",
             },
             "linux": {
                 "framework_libpath": "libMaaFramework.so",
-                "toolkit_libpath": "libMaaToolKit.so",
+                "toolkit_libpath": "libMaaToolkit.so",
                 "environ_var": "LD_LIBRARY_PATH",
             },
         }
@@ -56,7 +60,9 @@ class Library:
             cls.framework_libpath = ctypes.util.find_library("MaaFramework")
             cls.framework = lib_import(str(cls.framework_libpath))
 
-        cls.initialized = True
+        if not cls.framework:
+            cls.initialized = False
+            return None
 
         if toolkit:
             try:
@@ -66,10 +72,30 @@ class Library:
                 )
                 cls.toolkit = lib_import(str(cls.toolkit_libpath))
             except OSError:
-                cls.toolkit_libpath = ctypes.util.find_library("MaaToolKit")
+                cls.toolkit_libpath = ctypes.util.find_library("MaaToolkit")
                 cls.toolkit = lib_import(str(cls.toolkit_libpath))
         else:
             cls.toolkit = None
             cls.toolkit_libpath = None
 
-        return True
+        cls.initialized = True
+
+        return cls.version()
+
+    @classmethod
+    def version(cls) -> str:
+        """
+        Get the version of the library.
+
+        :return: The version of the library.
+        """
+
+        if not cls.initialized:
+            raise RuntimeError(
+                "Library not initialized, please call `library.open()` first."
+            )
+
+        cls.framework.MaaVersion.restype = MaaStringView
+        cls.framework.MaaVersion.argtypes = None
+
+        return cls.framework.MaaVersion().decode("utf-8")

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stack>
 #include <string_view>
 
 #include <meojson/json.hpp>
@@ -12,8 +13,6 @@
 #include "Task/Actuator.h"
 #include "Task/Recognizer.h"
 #include "Task/TaskDataMgr.h"
-
-#include <stack>
 
 MAA_TASK_NS_BEGIN
 
@@ -60,7 +59,7 @@ private:
 
 private:
     MAA_RES_NS::ResourceMgr* resource() { return inst_ ? inst_->inter_resource() : nullptr; }
-    MAA_CTRL_NS::ControllerMgr* controller() { return inst_ ? inst_->inter_controller() : nullptr; }
+    MAA_CTRL_NS::ControllerAgent* controller() { return inst_ ? inst_->inter_controller() : nullptr; }
     InstanceStatus* status() { return inst_ ? inst_->inter_status() : nullptr; }
     void notify(std::string_view msg, json::value detail = json::value())
     {

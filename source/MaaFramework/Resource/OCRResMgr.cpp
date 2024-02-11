@@ -1,12 +1,11 @@
 #include "OCRResMgr.h"
 
 #include <filesystem>
+#include <ranges>
 
-#include "Utils/Demangle.hpp"
 #include "Utils/File.hpp"
 #include "Utils/Logger.h"
 #include "Utils/Platform.h"
-#include "Utils/Ranges.hpp"
 #include "Utils/StringMisc.hpp"
 
 MAA_RES_NS_BEGIN
@@ -87,14 +86,14 @@ std::shared_ptr<fastdeploy::vision::ocr::DBDetector> OCRResMgr::load_deter(const
 
     LogFunc << VAR(name) << VAR(roots_);
 
-    for (const auto& root : roots_ | MAA_RNS::views::reverse) {
+    for (const auto& root : roots_ | std::views::reverse) {
         const auto dir = root / MAA_NS::path(name);
         const auto model_path = dir / "det.onnx"_path;
         if (!std::filesystem::exists(model_path)) {
             continue;
         }
 
-        LogDebug << VAR(model_path);
+        LogTrace << VAR(model_path);
 
         auto model = read_file<std::string>(model_path);
 
@@ -119,7 +118,7 @@ std::shared_ptr<fastdeploy::vision::ocr::Recognizer> OCRResMgr::load_recer(const
 
     LogFunc << VAR(name) << VAR(roots_);
 
-    for (const auto& root : roots_ | MAA_RNS::views::reverse) {
+    for (const auto& root : roots_ | std::views::reverse) {
         const auto dir = root / MAA_NS::path(name);
         const auto model_path = dir / "rec.onnx"_path;
         const auto label_path = dir / "keys.txt"_path;
@@ -127,7 +126,7 @@ std::shared_ptr<fastdeploy::vision::ocr::Recognizer> OCRResMgr::load_recer(const
             continue;
         }
 
-        LogDebug << VAR(model_path);
+        LogTrace << VAR(model_path);
 
         auto model = read_file<std::string>(model_path);
         auto label = read_file<std::string>(label_path);

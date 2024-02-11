@@ -1,6 +1,6 @@
 #include "InstanceMgr.h"
 
-#include "Controller/ControllerMgr.h"
+#include "Controller/ControllerAgent.h"
 #include "MaaFramework/MaaMsg.h"
 #include "Resource/ResourceMgr.h"
 #include "Task/CustomAction.h"
@@ -107,7 +107,7 @@ MaaTaskId InstanceMgr::post_task(std::string entry, std::string_view param)
         return MaaInvalidId;
     }
     auto id = task_runner_->post(task_ptr);
-    LogDebug << VAR(id);
+    LogTrace << VAR(id);
 
     return id;
 }
@@ -128,7 +128,7 @@ bool InstanceMgr::set_task_param(MaaTaskId task_id, std::string_view param)
             return;
         }
         ret = task_ptr->set_param(*param_opt);
-        LogDebug << VAR(id) << VAR(ret);
+        LogTrace << VAR(id) << VAR(ret);
     });
 
     return ret;
@@ -210,7 +210,7 @@ MaaBool InstanceMgr::task_all_finished() const
     return !task_runner_->running();
 }
 
-void InstanceMgr::stop()
+void InstanceMgr::post_stop()
 {
     LogFunc;
 
@@ -245,9 +245,9 @@ MAA_RES_NS::ResourceMgr* InstanceMgr::inter_resource()
     return dynamic_cast<MAA_RES_NS::ResourceMgr*>(resource());
 }
 
-MAA_CTRL_NS::ControllerMgr* InstanceMgr::inter_controller()
+MAA_CTRL_NS::ControllerAgent* InstanceMgr::inter_controller()
 {
-    return dynamic_cast<MAA_CTRL_NS::ControllerMgr*>(controller());
+    return dynamic_cast<MAA_CTRL_NS::ControllerAgent*>(controller());
 }
 
 InstanceStatus* InstanceMgr::inter_status()

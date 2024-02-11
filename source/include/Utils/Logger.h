@@ -3,6 +3,7 @@
 #include <source_location>
 
 #include "LoggerUtils.h"
+#include "ScopeLeave.hpp"
 
 MAA_LOG_NS_BEGIN
 
@@ -11,6 +12,8 @@ class MAA_UTILS_API Logger
 public:
     static constexpr std::string_view kLogFilename = "maa.log";
     static constexpr std::string_view kLogbakFilename = "maa.bak.log";
+    static constexpr std::string_view kDumpsDirname = "dumps";
+    static constexpr std::string_view kDumpsbakDirname = "dumps.bak";
 
 public:
     static Logger& get_instance();
@@ -61,7 +64,7 @@ private:
     LogStream stream(level lv, args_t&&... args)
     {
         bool std_out = static_cast<int>(lv) <= stdout_level_;
-        return LogStream(trace_mutex_, ofs_, lv, std_out, std::forward<args_t>(args)...);
+        return LogStream(trace_mutex_, ofs_, lv, std_out, dumps_dir_, std::forward<args_t>(args)...);
     }
 
 private:
@@ -78,6 +81,8 @@ private:
 private:
     std::filesystem::path log_dir_;
     std::filesystem::path log_path_;
+    std::filesystem::path dumps_dir_;
+
 #ifdef MAA_DEBUG
     MaaLoggingLevel stdout_level_ = MaaLoggingLevel_All;
 #else
@@ -87,13 +92,14 @@ private:
     std::mutex trace_mutex_;
 };
 
-class ScopeEnterHelper
+class LogScopeEnterHelper
 {
 public:
     template <typename... args_t>
-    ScopeEnterHelper(args_t&&... args) : stream_(Logger::get_instance().debug(std::forward<args_t>(args)...))
+    explicit LogScopeEnterHelper(args_t&&... args)
+        : stream_(Logger::get_instance().debug(std::forward<args_t>(args)...))
     {}
-    ~ScopeEnterHelper() { stream_ << "| enter"; }
+    ~LogScopeEnterHelper() { stream_ << "| enter"; }
 
     LogStream& operator()() { return stream_; }
 
@@ -102,13 +108,13 @@ private:
 };
 
 template <typename... args_t>
-class ScopeLeaveHelper
+class LogScopeLeaveHelper
 {
 public:
-    ScopeLeaveHelper(args_t&&... args) : args_(std::forward<args_t>(args)...) {}
-    ~ScopeLeaveHelper()
+    explicit LogScopeLeaveHelper(args_t&&... args) : args_(std::forward<args_t>(args)...) {}
+    ~LogScopeLeaveHelper()
     {
-        std::apply([](auto&&... args) { return Logger::get_instance().debug(std::forward<decltype(args)>(args)...); },
+        std::apply([](auto&&... args) { return Logger::get_instance().trace(std::forward<decltype(args)>(args)...); },
                    std::move(args_))
             << "| leave," << duration_since(start_);
     }
@@ -146,16 +152,11 @@ MAA_LOG_NS_END
 #define LogDebug MAA_LOG_NS::Logger::get_instance().debug(LOG_ARGS)
 #define LogTrace MAA_LOG_NS::Logger::get_instance().trace(LOG_ARGS)
 
-#define _Cat_(a, b) a##b
-#define _Cat(a, b) _Cat_(a, b)
-#define _CatVarNameWithLine(Var) _Cat(Var, __LINE__)
-#define LogScopeHeplerName _CatVarNameWithLine(log_scope_)
-
-#define LogFunc                                                \
-    MAA_LOG_NS::ScopeLeaveHelper LogScopeHeplerName(LOG_ARGS); \
-    MAA_LOG_NS::ScopeEnterHelper(LOG_ARGS)()
+#define LogFunc                                                   \
+    MAA_LOG_NS::LogScopeLeaveHelper ScopeHelperVarName(LOG_ARGS); \
+    MAA_LOG_NS::LogScopeEnterHelper(LOG_ARGS)()
 
 #define VAR_RAW(x) "[" << #x << "=" << (x) << "] "
 #define VAR(x) MAA_LOG_NS::separator::none << VAR_RAW(x) << MAA_LOG_NS::separator::space
-#define VAR_VOIDP_RAW(x) "[" << #x << "=" << ((void*)x) << "] "
+#define VAR_VOIDP_RAW(x) "[" << #x << "=" << reinterpret_cast<void*>(x) << "] "
 #define VAR_VOIDP(x) MAA_LOG_NS::separator::none << VAR_VOIDP_RAW(x) << MAA_LOG_NS::separator::space

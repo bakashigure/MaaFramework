@@ -1,27 +1,31 @@
 #pragma once
 
-#include "ControlUnit/DbgControlUnitAPI.h"
-
 #include <filesystem>
 
 #include <meojson/json.hpp>
 
-MAA_DBG_CTRL_UNIT_NS_BEGIN
+#include "ControlUnit/ControlUnitAPI.h"
 
-class CarouselImage : public ControllerAPI
+MAA_CTRL_UNIT_NS_BEGIN
+
+class CarouselImage : public ControlUnitAPI
 {
 public:
-    CarouselImage(std::filesystem::path path) : path_(std::move(path)) {}
+    explicit CarouselImage(std::filesystem::path path) : path_(std::move(path)) {}
     virtual ~CarouselImage() = default;
 
-public: // from ControllerAPI
-    virtual std::string uuid() const override;
-    virtual cv::Size resolution() const override;
+public: // from ControlUnitAPI
+    virtual bool find_device(/*out*/ std::vector<std::string>& devices) override;
 
     virtual bool connect() override;
 
+    virtual bool request_uuid(/*out*/ std::string& uuid) override;
+    virtual bool request_resolution(/*out*/ int& width, /*out*/ int& height) override;
+
     virtual bool start_app(const std::string& intent) override;
     virtual bool stop_app(const std::string& intent) override;
+
+    virtual bool screencap(/*out*/ cv::Mat& image) override;
 
     virtual bool click(int x, int y) override;
     virtual bool swipe(int x1, int y1, int x2, int y2, int duration) override;
@@ -31,8 +35,7 @@ public: // from ControllerAPI
     virtual bool touch_up(int contact) override;
 
     virtual bool press_key(int key) override;
-
-    virtual std::optional<cv::Mat> screencap() override;
+    virtual bool input_text(const std::string& text) override;
 
 private:
     std::filesystem::path path_;
@@ -41,4 +44,4 @@ private:
     cv::Size resolution_ {};
 };
 
-MAA_DBG_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

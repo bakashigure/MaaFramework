@@ -26,13 +26,13 @@ FeatureMatcher::ResultsVec FeatureMatcher::analyze() const
     ResultsVec results = foreach_rois(templ);
 
     auto cost = duration_since(start_time);
-    LogDebug << name_ << "Raw:" << VAR(results) << VAR(param_.template_path) << VAR(cost);
+    LogTrace << name_ << "Raw:" << VAR(results) << VAR(param_.template_path) << VAR(cost);
 
     int count = param_.count;
     filter(results, count);
 
     cost = duration_since(start_time);
-    LogDebug << name_ << "Filter:" << VAR(results) << VAR(param_.template_path) << VAR(count) << VAR(cost);
+    LogTrace << name_ << "Filter:" << VAR(results) << VAR(param_.template_path) << VAR(count) << VAR(cost);
 
     return results;
 }
@@ -180,7 +180,7 @@ FeatureMatcher::ResultsVec FeatureMatcher::postproc(const std::vector<std::vecto
         scene.emplace_back(keypoints_2[point[0].queryIdx].pt);
     }
 
-    LogDebug << name_ << "Match:" << VAR(good_matches.size()) << VAR(match_points.size()) << VAR(param_.distance_ratio);
+    LogTrace << name_ << "Match:" << VAR(good_matches.size()) << VAR(match_points.size()) << VAR(param_.distance_ratio);
 
     ResultsVec results;
     if (good_matches.size() >= 4) {
@@ -198,7 +198,7 @@ FeatureMatcher::ResultsVec FeatureMatcher::postproc(const std::vector<std::vecto
         double h = std::max({ scene_corners[0].y, scene_corners[1].y, scene_corners[2].y, scene_corners[3].y }) - y;
         cv::Rect box { static_cast<int>(x), static_cast<int>(y), static_cast<int>(w), static_cast<int>(h) };
 
-        size_t count = MAA_RNS::ranges::count_if(scene, [&box](const auto& point) { return box.contains(point); });
+        size_t count = std::ranges::count_if(scene, [&box](const auto& point) { return box.contains(point); });
 
         results.emplace_back(Result { .box = box, .count = static_cast<int>(count) });
     }
@@ -237,9 +237,7 @@ void FeatureMatcher::draw_result(const cv::Mat& templ, const std::vector<cv::Key
 
 void FeatureMatcher::filter(ResultsVec& results, int count) const
 {
-    auto remove_iter =
-        std::remove_if(results.begin(), results.end(), [count](const auto& res) { return res.count < count; });
-    results.erase(remove_iter, results.end());
+    std::erase_if(results, [count](const auto& res) { return res.count < count; });
 }
 
 MAA_VISION_NS_END

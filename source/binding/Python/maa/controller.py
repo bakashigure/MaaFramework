@@ -1,16 +1,25 @@
-import ctypes
+from ctypes import c_int32
 import json
 from abc import ABC
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
 
-from .define import MaaApiCallback, MaaBool, MaaId, MaaStatus
-from .common import Status
+from .custom_controller import CustomControllerAgent
+from .callback_agent import Callback, CallbackAgent
+from .define import *
+from .future import Future
 from .library import Library
-from .callback_agent import CallbackAgent, Callback
+
+__all__ = [
+    "AdbController",
+    "DbgController",
+    "Win32Controller",
+    "ThriftController",
+    "CustomController",
+]
 
 
 class Controller(ABC):
-    _handle: ctypes.c_void_p
+    _handle: MaaControllerHandle
     _callback_agent: CallbackAgent
 
     def __init__(self, callback: Optional[Callback] = None, callback_arg: Any = None):
@@ -35,47 +44,25 @@ class Controller(ABC):
             Library.framework.MaaControllerDestroy(self._handle)
             self._handle = None
 
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """
-        Sync connect to the controller.
+        Async connect to the controller.
 
         :return: True if the connection was successful, False otherwise.
         """
+        await self.post_connection().wait()
 
-        cid = self.post_connection()
-        return self.wait(cid) == Status.success
-
-    def post_connection(self) -> int:
+    def post_connection(self) -> Future:
         """
-        Async post a connection to the controller.
+        Post a connection to the controller. (connect in backgroud)
 
         :return: The connection ID.
         """
 
-        return Library.framework.MaaControllerPostConnection(self._handle)
+        maaid = Library.framework.MaaControllerPostConnection(self._handle)
+        return Future(maaid, self._status)
 
-    def status(self, connection_id: int) -> Status:
-        """
-        Get the status of a connection.
-
-        :param connection_id: The connection ID.
-        :return: The status of the connection.
-        """
-
-        return Status(
-            Library.framework.MaaControllerStatus(self._handle, connection_id)
-        )
-
-    def wait(self, connection_id: int) -> Status:
-        """
-        Wait for a connection to complete.
-
-        :param connection_id: The connection ID.
-        :return: The status of the connection.
-        """
-
-        return Status(Library.framework.MaaControllerWait(self._handle, connection_id))
-
+    @property
     def connected(self) -> bool:
         """
         Check if the controller is connected.
@@ -85,7 +72,33 @@ class Controller(ABC):
 
         return bool(Library.framework.MaaControllerConnected(self._handle))
 
+    def _status(self, maaid: int) -> MaaStatus:
+        return Library.framework.MaaControllerStatus(self._handle, maaid)
+
     _api_properties_initialized: bool = False
+
+    # TODO: 进一步优化 set_option？
+    def set_option(self, key: MaaCtrlOptionEnum, value: MaaOptionValue) -> bool:
+        if (
+            key == MaaCtrlOptionEnum.ScreenshotTargetLongSide
+            or key == MaaCtrlOptionEnum.ScreenshotTargetShortSide
+        ):
+            size = ctypes.sizeof(ctypes.c_int32)
+        elif (
+            key == MaaCtrlOptionEnum.DefaultAppPackage
+            or key == MaaCtrlOptionEnum.DefaultAppPackageEntry
+        ):
+            size = ctypes.sizeof(ctypes.c_bool)
+        elif key == MaaCtrlOptionEnum.Recording:
+            size = ctypes.sizeof(ctypes.c_bool)
+        elif key == MaaCtrlOptionEnum.Invalid:
+            size = 0
+        else:
+            raise ValueError(f"Unsupported option: {key}")
+
+        return bool(
+            Library.framework.MaaControllerSetOption(self._handle, key, ctypes.pointer(value), size)
+        )
 
     @staticmethod
     def _set_api_properties():
@@ -97,201 +110,40 @@ class Controller(ABC):
         Controller._api_properties_initialized = True
 
         Library.framework.MaaControllerDestroy.restype = None
-        Library.framework.MaaControllerDestroy.argtypes = [ctypes.c_void_p]
+        Library.framework.MaaControllerDestroy.argtypes = [MaaControllerHandle]
 
         Library.framework.MaaControllerSetOption.restype = MaaBool
         Library.framework.MaaControllerSetOption.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_int32,
-            ctypes.c_void_p,
-            ctypes.c_uint64,
+            MaaControllerHandle,
+            MaaCtrlOption,
+            MaaOptionValue,
+            MaaOptionValueSize,
         ]
 
-        Library.framework.MaaControllerPostConnection.restype = MaaId
-        Library.framework.MaaControllerPostConnection.argtypes = [ctypes.c_void_p]
+        Library.framework.MaaControllerPostConnection.restype = MaaCtrlId
+        Library.framework.MaaControllerPostConnection.argtypes = [MaaControllerHandle]
 
         Library.framework.MaaControllerStatus.restype = MaaStatus
-        Library.framework.MaaControllerStatus.argtypes = [ctypes.c_void_p, MaaId]
-
-        Library.framework.MaaControllerWait.restype = MaaStatus
-        Library.framework.MaaControllerWait.argtypes = [ctypes.c_void_p, MaaId]
+        Library.framework.MaaControllerStatus.argtypes = [
+            MaaControllerHandle,
+            MaaCtrlId,
+        ]
 
         Library.framework.MaaControllerConnected.restype = MaaBool
-        Library.framework.MaaControllerConnected.argtypes = [ctypes.c_void_p]
+        Library.framework.MaaControllerConnected.argtypes = [MaaControllerHandle]
 
 
 class AdbController(Controller):
-    DEFAULT_CONFIG = {
-        "prebuilt": {
-            "minicap": {
-                "arch": ["x86", "armeabi-v7a", "armeabi"],
-                "sdk": [31, 29, 28, 27, 26, 25, 24, 23, 22, 21, 19, 18, 17, 16, 15, 14],
-            },
-            "minitouch": {
-                "arch": ["x86_64", "x86", "arm64-v8a", "armeabi-v7a", "armeabi"],
-            },
-            "maatouch": {
-                "package": "com.shxyke.MaaTouch.App",
-            },
-        },
-        "command": {
-            "Devices": ["{ADB}", "devices"],
-            "Connect": ["{ADB}", "connect", "{ADB_SERIAL}"],
-            "KillServer": ["{ADB}", "kill-server"],
-            "UUID": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "settings get secure android_id",
-            ],
-            "Resolution": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "dumpsys window displays | grep -o -E cur=+[^\\ ]+ | grep -o -E [0-9]+",
-            ],
-            "StartApp": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "am start -n {INTENT}",
-            ],
-            "StopApp": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "am force-stop {INTENT}",
-            ],
-            "Click": ["{ADB}", "-s", "{ADB_SERIAL}", "shell", "input tap {X} {Y}"],
-            "Swipe": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "input swipe {X1} {Y1} {X2} {Y2} {DURATION}",
-            ],
-            "PressKey": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "input keyevent {KEY}",
-            ],
-            "ForwardSocket": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "forward",
-                "tcp:{FOWARD_PORT}",
-                "localabstract:{LOCAL_SOCKET}",
-            ],
-            "NetcatAddress": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "cat /proc/net/arp | grep : ",
-            ],
-            "ScreencapRawByNetcat": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "exec-out",
-                "screencap | nc -w 3 {NETCAT_ADDRESS} {NETCAT_PORT}",
-            ],
-            "ScreencapRawWithGzip": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "exec-out",
-                "screencap | gzip -1",
-            ],
-            "ScreencapEncode": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "exec-out",
-                "screencap -p",
-            ],
-            "ScreencapEncodeToFile": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                'screencap -p > "/data/local/tmp/{TEMP_FILE}"',
-            ],
-            "PullFile": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "pull",
-                "/data/local/tmp/{TEMP_FILE}",
-                "{DST_PATH}",
-            ],
-            "Abilist": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "getprop ro.product.cpu.abilist | tr -d '\n\r'",
-            ],
-            "SDK": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "getprop ro.build.version.sdk | tr -d '\n\r'",
-            ],
-            "Orientation": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                "dumpsys input | grep SurfaceOrientation | grep -m 1 -o -E [0-9]",
-            ],
-            "PushBin": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "push",
-                "{BIN_PATH}",
-                "/data/local/tmp/{BIN_WORKING_FILE}",
-            ],
-            "ChmodBin": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                'chmod 700 "/data/local/tmp/{BIN_WORKING_FILE}"',
-            ],
-            "InvokeBin": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                'export LD_LIBRARY_PATH=/data/local/tmp/; "/data/local/tmp/{BIN_WORKING_FILE}" {BIN_EXTRA_PARAMS}',
-            ],
-            "InvokeApp": [
-                "{ADB}",
-                "-s",
-                "{ADB_SERIAL}",
-                "shell",
-                'export CLASSPATH="/data/local/tmp/{APP_WORKING_FILE}"; app_process /data/local/tmp {PACKAGE_NAME}',
-            ],
-        },
-    }
-
     def __init__(
         self,
         adb_path: str,
         address: str,
-        controller_type: int = 65793,
-        config: Dict[str, Any] = DEFAULT_CONFIG,
-        agent_path: str = "./MaaAgentBinary",
+        type: MaaAdbControllerType = (
+            MaaAdbControllerTypeEnum.Input_Preset_Maatouch
+            | MaaAdbControllerTypeEnum.Screencap_FastestWay
+        ),
+        config: Dict[str, Any] = {},
+        agent_path: str = "share/MaaAgentBinary",
         callback: Optional[Callback] = None,
         callback_arg: Any = None,
     ):
@@ -313,11 +165,11 @@ class AdbController(Controller):
         self._handle = Library.framework.MaaAdbControllerCreateV2(
             adb_path.encode("utf-8"),
             address.encode("utf-8"),
-            controller_type,
+            type,
             json.dumps(config).encode("utf-8"),
             agent_path.encode("utf-8"),
-            self._callback_agent.c_callback(),
-            self._callback_agent.c_callback_arg(),
+            self._callback_agent.c_callback,
+            self._callback_agent.c_callback_arg,
         )
 
         if not self._handle:
@@ -328,13 +180,172 @@ class AdbController(Controller):
         Set the API properties for the ADB controller.
         """
 
-        Library.framework.MaaAdbControllerCreateV2.restype = ctypes.c_void_p
+        Library.framework.MaaAdbControllerCreateV2.restype = MaaControllerHandle
         Library.framework.MaaAdbControllerCreateV2.argtypes = [
-            ctypes.c_char_p,
-            ctypes.c_char_p,
-            ctypes.c_int32,
-            ctypes.c_char_p,
-            ctypes.c_char_p,
-            MaaApiCallback,
-            ctypes.c_void_p,
+            MaaStringView,
+            MaaStringView,
+            MaaAdbControllerType,
+            MaaStringView,
+            MaaStringView,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
+        ]
+
+
+class DbgController(Controller):
+    def __init__(
+        self,
+        read_path: str,
+        write_path: str = "",
+        type: MaaDbgControllerType = MaaDbgControllerTypeEnum.CarouselImage,
+        config: Dict[str, Any] = {},
+        callback: Optional[Callback] = None,
+        callback_arg: Any = None,
+    ):
+        super().__init__()
+        self._set_dbg_api_properties()
+
+        self._callback_agent = CallbackAgent(callback, callback_arg)
+        self._handle = Library.framework.MaaDbgControllerCreate(
+            read_path.encode("utf-8"),
+            write_path.encode("utf-8"),
+            type,
+            json.dumps(config).encode("utf-8"),
+            self._callback_agent.c_callback,
+            self._callback_agent.c_callback_arg,
+        )
+
+        if not self._handle:
+            raise RuntimeError("Failed to create DBG controller.")
+
+    def _set_dbg_api_properties(self):
+        """
+        Set the API properties for the DBG controller.
+        """
+
+        Library.framework.MaaDbgControllerCreate.restype = MaaControllerHandle
+        Library.framework.MaaDbgControllerCreate.argtypes = [
+            MaaStringView,
+            MaaStringView,
+            MaaDbgControllerType,
+            MaaStringView,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
+        ]
+
+
+class Win32Controller(Controller):
+    def __init__(
+        self,
+        hWnd: MaaWin32Hwnd,
+        type: MaaWin32ControllerType = (
+            MaaWin32ControllerTypeEnum.Key_SendMessage
+            | MaaWin32ControllerTypeEnum.Touch_SendMessage
+            | MaaWin32ControllerTypeEnum.Screencap_DXGI_DesktopDup
+        ),
+        callback: Optional[Callback] = None,
+        callback_arg: Any = None,
+    ):
+        super().__init__()
+        self._set_dbg_api_properties()
+
+        self._callback_agent = CallbackAgent(callback, callback_arg)
+        self._handle = Library.framework.MaaWin32ControllerCreate(
+            hWnd,
+            type,
+            self._callback_agent.c_callback,
+            self._callback_agent.c_callback_arg,
+        )
+
+        if not self._handle:
+            raise RuntimeError("Failed to create Win32 controller.")
+
+    def _set_dbg_api_properties(self):
+        """
+        Set the API properties for the Win32 controller.
+        """
+
+        Library.framework.MaaWin32ControllerCreate.restype = MaaControllerHandle
+        Library.framework.MaaWin32ControllerCreate.argtypes = [
+            MaaWin32Hwnd,
+            MaaWin32ControllerType,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
+        ]
+
+
+class ThriftController(Controller):
+    def __init__(
+        self,
+        type: MaaThriftControllerType,
+        host: str,
+        port: int,
+        config: Dict[str, Any],
+        callback: Optional[Callback] = None,
+        callback_arg: Any = None,
+    ):
+        super().__init__()
+        self._set_thrift_api_properties()
+
+        self._callback_agent = CallbackAgent(callback, callback_arg)
+        self._handle = Library.framework.MaaThriftControllerCreate(
+            type,
+            host.encode("utf-8"),
+            port,
+            json.dumps(config).encode("utf-8"),
+            self._callback_agent.c_callback,
+            self._callback_agent.c_callback_arg,
+        )
+
+        if not self._handle:
+            raise RuntimeError("Failed to create Thrift controller.")
+
+    def _set_thrift_api_properties(self):
+        """
+        Set the API properties for the Thrift controller.
+        """
+
+        Library.framework.MaaThriftControllerCreate.restype = MaaControllerHandle
+        Library.framework.MaaThriftControllerCreate.argtypes = [
+            MaaThriftControllerType,
+            MaaStringView,
+            c_int32,
+            MaaStringView,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
+        ]
+
+
+class CustomContorller(Controller):
+    def __init__(
+        self,
+        custom_controller: CustomControllerAgent,
+        callback: Optional[Callback] = None,
+        callback_arg: Any = None,
+    ):
+        super().__init__()
+        self._set_custom_api_properties()
+
+        self._callback_agent = CallbackAgent(callback, callback_arg)
+        self._handle = Library.framework.MaaCustomControllerCreate(
+            custom_controller.c_handle,
+            custom_controller.c_arg,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
+        )
+
+        if not self._handle:
+            raise RuntimeError("Failed to create Custom controller.")
+
+    def _set_custom_api_properties(self):
+        """
+        Set the API properties for the Custom controller.
+        """
+
+        Library.framework.MaaCustomControllerCreate.restype = MaaControllerHandle
+        Library.framework.MaaCustomControllerCreate.argtypes = [
+            MaaCustomActionHandle,
+            MaaTransparentArg,
+            MaaControllerCallback,
+            MaaCallbackTransparentArg,
         ]

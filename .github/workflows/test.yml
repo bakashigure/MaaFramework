@@ -61,7 +61,7 @@ jobs:
     runs-on: windows-latest
     strategy:
       matrix:
-        arch: [aarch64, x86_64]
+        arch: [x86_64]
       fail-fast: false
 
     steps:
@@ -87,6 +87,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Setup Windows 10 SDK
+        uses: GuillaumeFalourd/setup-windows10-sdk-action@v1.12
+        with:
+          sdk-version: 22621
+
       - name: Bootstrap MaaDeps
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -95,7 +100,7 @@ jobs:
 
       - name: Build MAA
         run: |
-          cmake --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }}" -DMAADEPS_TRIPLET="maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-windows" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}' -DWITH_ADB_CONTROLLER=OFF -DWITH_THRIFT_CONTROLLER=OFF -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON
+          cmake --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }}" -DMAADEPS_TRIPLET="maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-windows" -DCMAKE_SYSTEM_VERSION="10.0.22621.0" -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}' -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON -DBUILD_DLOPEN_TESTING=ON
 
           cmake --build build --preset "${{ matrix.arch == 'x86_64' && 'MSVC 2022' || 'MSVC 2022 ARM' }} - Release" -j 16
 
@@ -103,6 +108,13 @@ jobs:
         shell: bash
         run: |
           cmake --install build --prefix install
+
+      - name: Run DlopenTesting
+        # TODO: qemu for aarch64
+        if: ${{matrix.arch == 'x86_64'}}
+        shell: bash
+        run: |
+          ./install/bin/DlopenTesting
 
       - name: Run PipelineTesting
         # TODO: qemu for aarch64
@@ -129,7 +141,7 @@ jobs:
     container: archlinux:base-devel
     strategy:
       matrix:
-        arch: [aarch64, x86_64]
+        arch: [x86_64]
       fail-fast: false
 
     steps:
@@ -173,7 +185,7 @@ jobs:
           cmake --preset 'NinjaMulti' \
             -DMAADEPS_TRIPLET='maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-linux' \
             -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}' \
-            -DWITH_ADB_CONTROLLER=OFF -DWITH_THRIFT_CONTROLLER=OFF -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON
+            -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON -DBUILD_DLOPEN_TESTING=ON
 
           cmake --build build --preset 'NinjaMulti - Release' -j 16
 
@@ -181,6 +193,13 @@ jobs:
         shell: bash
         run: |
           cmake --install build --prefix install
+
+      - name: Run DlopenTesting
+        # TODO: qemu for aarch64
+        if: ${{matrix.arch == 'x86_64'}}
+        shell: bash
+        run: |
+          ./install/bin/DlopenTesting
 
       - name: Run PipelineTesting
         # TODO: qemu for aarch64
@@ -206,7 +225,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       matrix:
-        arch: [aarch64, x86_64]
+        arch: [x86_64]
       fail-fast: false
 
     steps:
@@ -240,9 +259,10 @@ jobs:
           CXX: "/usr/local/opt/llvm/bin/clang++"
         run: |
           cmake --preset 'NinjaMulti' \
+            -DCMAKE_OSX_ARCHITECTURES='${{ matrix.arch == 'x86_64' && 'x86_64' || 'arm64' }}' \
             -DMAADEPS_TRIPLET='maa-${{ matrix.arch == 'x86_64' && 'x64' || 'arm64' }}-osx' \
             -DMAA_HASH_VERSION='${{ needs.meta.outputs.tag }}' \
-            -DWITH_ADB_CONTROLLER=OFF -DWITH_THRIFT_CONTROLLER=OFF -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON
+            -DWITH_GRPC=OFF -DBUILD_PIPELINE_TESTING=ON -DBUILD_DLOPEN_TESTING=ON
 
           cmake --build build --preset 'NinjaMulti - Release' -j 16
 
@@ -251,6 +271,13 @@ jobs:
         if: always()
         run: |
           cmake --install build --prefix install
+
+      - name: Run DlopenTesting
+        # TODO: qemu for aarch64
+        if: ${{matrix.arch == 'x86_64'}}
+        shell: bash
+        run: |
+          ./install/bin/DlopenTesting
 
       - name: Run PipelineTesting
         # TODO: qemu for aarch64

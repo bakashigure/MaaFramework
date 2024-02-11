@@ -3,8 +3,8 @@
 #include <onnxruntime/onnxruntime_cxx_api.h>
 
 #include "Utils/NoWarningCV.hpp"
-#include "Utils/Ranges.hpp"
 #include "VisionUtils.hpp"
+#include <ranges>
 
 MAA_VISION_NS_BEGIN
 
@@ -28,13 +28,13 @@ NeuralNetworkClassifier::ResultsVec NeuralNetworkClassifier::analyze() const
     auto start_time = std::chrono::steady_clock::now();
     ResultsVec results = foreach_rois();
     auto cost = duration_since(start_time);
-    LogDebug << name_ << "Raw:" << VAR(results) << VAR(cost);
+    LogTrace << name_ << "Raw:" << VAR(results) << VAR(cost);
 
     const auto& expected = param_.expected;
     filter(results, expected);
 
     cost = duration_since(start_time);
-    LogDebug << name_ << "Filter:" << VAR(results) << VAR(expected) << VAR(cost);
+    LogTrace << name_ << "Filter:" << VAR(results) << VAR(expected) << VAR(cost);
 
     return results;
 }
@@ -126,10 +126,9 @@ void NeuralNetworkClassifier::filter(ResultsVec& results, const std::vector<size
         return;
     }
 
-    auto it = std::remove_if(results.begin(), results.end(), [&](const Result& res) {
+    std::erase_if(results, [&](const Result& res) {
         return std::find(expected.begin(), expected.end(), res.cls_index) == expected.end();
     });
-    results.erase(it, results.end());
 }
 
 MAA_VISION_NS_END

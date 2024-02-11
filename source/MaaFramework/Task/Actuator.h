@@ -20,7 +20,7 @@ public:
     using TaskData = MAA_RES_NS::TaskData;
 
 public:
-    Actuator(InstanceInternalAPI* inst);
+    explicit Actuator(InstanceInternalAPI* inst);
 
     bool run(const Recognizer::Result& rec_result, const TaskData& task_data);
 
@@ -31,6 +31,7 @@ private:
     bool click(const MAA_RES_NS::Action::ClickParam& param, const cv::Rect& cur_box);
     bool swipe(const MAA_RES_NS::Action::SwipeParam& param, const cv::Rect& cur_box);
     bool press_key(const MAA_RES_NS::Action::KeyParam& param);
+    bool input_text(const MAA_RES_NS::Action::TextParam& param);
 
     bool start_app(const MAA_RES_NS::Action::AppParam& param);
     bool stop_app(const MAA_RES_NS::Action::AppParam& param);
@@ -42,7 +43,7 @@ private:
     cv::Rect get_target_rect(const MAA_RES_NS::Action::Target target, const cv::Rect& cur_box);
 
 private:
-    MAA_CTRL_NS::ControllerMgr* controller() { return inst_ ? inst_->inter_controller() : nullptr; }
+    MAA_CTRL_NS::ControllerAgent* controller() { return inst_ ? inst_->inter_controller() : nullptr; }
     InstanceStatus* status() { return inst_ ? inst_->inter_status() : nullptr; }
     bool need_exit() const { return need_exit_; }
     void sleep(unsigned ms) const;

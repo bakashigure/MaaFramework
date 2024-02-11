@@ -1,50 +1,26 @@
 #include "MinitouchInput.h"
 
-#include "Utils/Format.hpp"
-#include "Utils/Logger.h"
-#include "Utils/Ranges.hpp"
-
 #include <array>
 #include <cmath>
+#include <ranges>
 
-MAA_ADB_CTRL_UNIT_NS_BEGIN
+#include "Utils/Format.hpp"
+#include "Utils/Logger.h"
+
+MAA_CTRL_UNIT_NS_BEGIN
 
 bool MinitouchInput::parse(const json::value& config)
 {
-    auto popt = config.find<json::object>("prebuilt");
-    if (!popt) {
-        LogError << "Cannot find entry prebuilt";
+    static const json::array kDefaultArch = {
+        "x86_64", "x86", "arm64-v8a", "armeabi-v7a", "armeabi",
+    };
+    json::array jarch = config.get("prebuilt", "minitouch", "arch", kDefaultArch);
+
+    if (!jarch.all<std::string>()) {
         return false;
     }
 
-    auto mopt = popt->find<json::object>("minitouch");
-    if (!mopt) {
-        LogError << "Cannot find entry prebuilt.minitouch";
-        return false;
-    }
-
-    {
-        auto opt = mopt->find<json::value>("arch");
-        if (!opt) {
-            LogError << "Cannot find entry prebuilt.minitouch.arch";
-            return false;
-        }
-
-        const auto& value = *opt;
-        if (!value.is_array()) {
-            return false;
-        }
-
-        const auto& arr = value.as_array();
-        if (MAA_RNS::ranges::any_of(arr, [](const json::value& val) { return !val.is_string(); })) {
-            return false;
-        }
-
-        arch_list_.clear();
-        arch_list_.reserve(arr.size());
-        MAA_RNS::ranges::transform(arr, std::back_inserter(arch_list_),
-                                   [](const json::value& val) { return val.as_string(); });
-    }
+    arch_list_ = jarch.as_collection<std::string>();
 
     return invoke_app_->parse(config);
 }
@@ -63,7 +39,7 @@ bool MinitouchInput::init(int swidth, int sheight, int orientation)
         return false;
     }
 
-    auto arch_iter = MAA_RNS::ranges::find_first_of(*archs, arch_list_);
+    auto arch_iter = std::ranges::find_first_of(*archs, arch_list_);
     if (arch_iter == archs->end()) {
         return false;
     }
@@ -85,12 +61,14 @@ bool MinitouchInput::set_wh(int swidth, int sheight, int orientation)
 {
     LogFunc << VAR(swidth) << VAR(sheight) << VAR(orientation);
 
-    shell_handler_ = invoke_app_->invoke_bin("-i");
-    if (!shell_handler_) {
+    // https://github.com/openstf/minitouch#running
+    static const std::string kMinitouchUseStdin = "-i";
+    pipe_ios_ = invoke_app_->invoke_bin(kMinitouchUseStdin);
+    if (!pipe_ios_) {
         return false;
     }
 
     return read_info(swidth, sheight, orientation);
 }
 
-MAA_ADB_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END

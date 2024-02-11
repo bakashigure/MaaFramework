@@ -3,8 +3,6 @@
 #include "Instance/InstanceMgr.h"
 #include "Utils/Logger.h"
 
-#pragma message("MaaFramework MAA_VERSION: " MAA_VERSION)
-
 MaaInstanceHandle MaaCreate(MaaInstanceCallback callback, MaaCallbackTransparentArg callback_arg)
 {
     LogFunc << VAR_VOIDP(callback) << VAR_VOIDP(callback_arg);
@@ -200,7 +198,7 @@ MaaBool MaaTaskAllFinished(MaaInstanceHandle inst)
     return inst->task_all_finished();
 }
 
-MaaBool MaaStop(MaaInstanceHandle inst)
+MaaBool MaaPostStop(MaaInstanceHandle inst)
 {
     LogFunc << VAR_VOIDP(inst);
 
@@ -209,8 +207,14 @@ MaaBool MaaStop(MaaInstanceHandle inst)
         return false;
     }
 
-    inst->stop();
+    inst->post_stop();
     return true;
+}
+
+MaaBool MaaStop(MaaInstanceHandle inst)
+{
+    LogWarn << "Deprecated, please use MaaPostStop instead";
+    return MaaPostStop(inst);
 }
 
 MaaResourceHandle MaaGetResource(MaaInstanceHandle inst)

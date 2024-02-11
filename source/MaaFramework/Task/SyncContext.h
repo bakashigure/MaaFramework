@@ -1,4 +1,6 @@
 #pragma once
+
+#include <stack>
 #include <string_view>
 
 #include <meojson/json.hpp>
@@ -10,14 +12,12 @@
 #include "Resource/PipelineTypes.h"
 #include "Task/TaskDataMgr.h"
 
-#include <stack>
-
 MAA_TASK_NS_BEGIN
 
 class SyncContext : public MaaSyncContextAPI, public MaaInstanceSink
 {
 public:
-    SyncContext(InstanceInternalAPI* inst);
+    explicit SyncContext(InstanceInternalAPI* inst);
     virtual ~SyncContext() override = default;
 
 public: // from MaaSyncContextAPI
@@ -30,12 +30,13 @@ public: // from MaaSyncContextAPI
     virtual bool click(int x, int y) override;
     virtual bool swipe(int x1, int y1, int x2, int y2, int duration) override;
     virtual bool press_key(int keycode) override;
+    virtual bool input_text(std::string_view text) override;
     virtual bool touch_down(int contact, int x, int y, int pressure) override;
     virtual bool touch_move(int contact, int x, int y, int pressure) override;
     virtual bool touch_up(int contact) override;
     virtual cv::Mat screencap() override;
 
-    virtual std::string task_result(const std::string& task_name) const override;
+    virtual json::value task_result(const std::string& task_name) const override;
 
     virtual MaaInstanceHandle instance() override { return dynamic_cast<MaaInstanceHandle>(inst_); }
     virtual MaaResourceHandle resource() override { return instance() ? instance()->resource() : nullptr; }

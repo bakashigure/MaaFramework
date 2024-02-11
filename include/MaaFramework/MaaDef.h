@@ -74,7 +74,7 @@ enum MaaGlobalOptionEnum
     MaaGlobalOption_StdoutLevel = 4,
 
     // value: bool, eg: true; val_size: sizeof(bool)
-    MaaGlobalOption_ShowDraw = 5,
+    MaaGlobalOption_ShowHitDraw = 5,
 };
 
 typedef MaaOption MaaResOption;
@@ -155,6 +155,34 @@ enum MaaDbgControllerTypeEnum
     MaaDbgControllerType_CarouselImage = 1,
     MaaDbgControllerType_ReplayRecording = 2,
 };
+
+typedef int32_t MaaThriftControllerType;
+enum MaaThriftControllerTypeEnum
+{
+    MaaThriftController_Invalid = 0,
+
+    MaaThriftControllerType_Socket = 1,
+    MaaThriftControllerType_UnixDomainSocket = 2,
+};
+
+typedef int32_t MaaWin32ControllerType;
+enum MaaWin32ControllerTypeEnum
+{
+    MaaWin32Controller_Invalid = 0,
+
+    MaaWin32ControllerType_Touch_SendMessage = 1,
+    MaaWin32ControllerType_Touch_Mask = 0xFF,
+
+    MaaWin32ControllerType_Key_SendMessage = 1 << 8,
+    MaaWin32ControllerType_Key_Mask = 0xFF00,
+
+    MaaWin32ControllerType_Screencap_GDI = 1 << 16,
+    MaaWin32ControllerType_Screencap_DXGI_DesktopDup = 2 << 16,
+    // MaaWin32ControllerType_Screencap_DXGI_BackBuffer = 3 << 16,
+    MaaWin32ControllerType_Screencap_DXGI_FramePool = 4 << 16,
+    MaaWin32ControllerType_Screencap_Mask = 0xFF0000,
+};
+typedef void* MaaWin32Hwnd;
 
 typedef void* MaaTransparentArg;
 typedef MaaTransparentArg MaaCallbackTransparentArg;

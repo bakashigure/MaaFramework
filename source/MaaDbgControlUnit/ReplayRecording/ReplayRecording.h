@@ -1,29 +1,32 @@
 #pragma once
 
-#include "ControlUnit/DbgControlUnitAPI.h"
-
 #include <filesystem>
 
 #include <meojson/json.hpp>
 
+#include "ControlUnit/ControlUnitAPI.h"
 #include "Record.h"
 
-MAA_DBG_CTRL_UNIT_NS_BEGIN
+MAA_CTRL_UNIT_NS_BEGIN
 
-class ReplayRecording : public ControllerAPI
+class ReplayRecording : public ControlUnitAPI
 {
 public:
-    ReplayRecording(Recording recording) : recording_(std::move(recording)) {}
+    explicit ReplayRecording(Recording recording) : recording_(std::move(recording)) {}
     virtual ~ReplayRecording() = default;
 
-public: // from ControllerAPI
-    virtual std::string uuid() const override { return recording_.device_info.uuid; }
-    virtual cv::Size resolution() const override { return recording_.device_info.resolution; }
+public: // from ControlUnitAPI
+    virtual bool find_device(/*out*/ std::vector<std::string>& devices) override;
 
     virtual bool connect() override;
 
+    virtual bool request_uuid(/*out*/ std::string& uuid) override;
+    virtual bool request_resolution(/*out*/ int& width, /*out*/ int& height) override;
+
     virtual bool start_app(const std::string& intent) override;
     virtual bool stop_app(const std::string& intent) override;
+
+    virtual bool screencap(/*out*/ cv::Mat& image) override;
 
     virtual bool click(int x, int y) override;
     virtual bool swipe(int x1, int y1, int x2, int y2, int duration) override;
@@ -33,8 +36,7 @@ public: // from ControllerAPI
     virtual bool touch_up(int contact) override;
 
     virtual bool press_key(int key) override;
-
-    virtual std::optional<cv::Mat> screencap() override;
+    virtual bool input_text(const std::string& text) override;
 
 private:
     void sleep(int ms);
@@ -44,4 +46,4 @@ private:
     size_t record_index_ = 0;
 };
 
-MAA_DBG_CTRL_UNIT_NS_END
+MAA_CTRL_UNIT_NS_END
